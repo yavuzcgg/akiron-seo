@@ -22,10 +22,8 @@ export default function DashboardPage() {
   // Form states
   const [newSiteName, setNewSiteName] = useState("");
   const [newDomainUrl, setNewDomainUrl] = useState("");
-  const [apiKeyProvider, setApiKeyProvider] = useState("1"); // OpenAI = 1
+  const [apiKeyProvider, setApiKeyProvider] = useState("3"); // Gemini = 3
   const [apiKeyValue, setApiKeyValue] = useState("");
-  const [keywordSiteId, setKeywordSiteId] = useState("");
-  const [keywordText, setKeywordText] = useState("");
 
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -116,18 +114,25 @@ export default function DashboardPage() {
     setMessage(null);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:5248/api/v1/tenant/api-keys?tenantId=${tenantId}&provider=${apiKeyProvider}&apiKey=${encodeURIComponent(apiKeyValue)}`, {
+      const res = await fetch("http://localhost:5248/api/v1/tenant/api-keys", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantId: tenantId,
+          provider: parseInt(apiKeyProvider),
+          apiKey: apiKeyValue,
+        }),
       });
+
       const data = await res.json();
       if (res.ok && data.success) {
-        setMessage("BYOK API key encrypted with AES-256-GCM and saved!");
+        setMessage(data.message || "BYOK API key encrypted with AES-256-GCM and saved!");
         setApiKeyValue("");
       } else {
-        setError("Failed to save API key.");
+        setError(data.detail || data.message || "Failed to save API key.");
       }
     } catch {
-      setError("API key service failed.");
+      setError("API key service failed to connect.");
     }
   };
 
@@ -269,9 +274,9 @@ export default function DashboardPage() {
                     onChange={(e) => setApiKeyProvider(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] text-sm"
                   >
+                    <option value="3">Google Gemini</option>
                     <option value="1">OpenAI (ChatGPT)</option>
                     <option value="2">Perplexity AI</option>
-                    <option value="3">Google Gemini</option>
                   </select>
                 </div>
 
@@ -279,7 +284,7 @@ export default function DashboardPage() {
                   <label className="block text-xs font-semibold text-slate-400 mb-1">API Key</label>
                   <input
                     type="password"
-                    placeholder="sk-proj-••••••••••••••••"
+                    placeholder="AIzaSy••••••••••••••••"
                     value={apiKeyValue}
                     onChange={(e) => setApiKeyValue(e.target.value)}
                     required

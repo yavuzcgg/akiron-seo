@@ -223,13 +223,13 @@ app.MapPost("/api/v1/keywords", async (Guid tenantId, AddTrackedKeywordCommand c
 // BYOK API KEY ENDPOINT (AES-256-GCM Encrypted)
 // ----------------------------------------------------
 
-app.MapPost("/api/v1/tenant/api-keys", async (Guid tenantId, AiProviderEnum provider, string apiKey, ITenantContext tenantContext, AkironDbContext db, IApiKeyEncryptionService encryptionService) =>
+app.MapPost("/api/v1/tenant/api-keys", async (SaveApiKeyDto request, ITenantContext tenantContext, AkironDbContext db, IApiKeyEncryptionService encryptionService) =>
 {
-    tenantContext.SetTenantId(tenantId);
+    tenantContext.SetTenantId(request.TenantId);
 
-    var encryptedKey = encryptionService.Encrypt(apiKey);
+    var encryptedKey = encryptionService.Encrypt(request.ApiKey);
     var existing = await db.EncryptedTenantApiKeys
-        .FirstOrDefaultAsync(k => k.TenantId == tenantId && k.Provider == provider);
+        .FirstOrDefaultAsync(k => k.TenantId == request.TenantId && k.Provider == request.Provider);
 
     if (existing != null)
     {
@@ -240,15 +240,15 @@ app.MapPost("/api/v1/tenant/api-keys", async (Guid tenantId, AiProviderEnum prov
     {
         db.EncryptedTenantApiKeys.Add(new EncryptedTenantApiKey
         {
-            TenantId = tenantId,
-            Provider = provider,
+            TenantId = request.TenantId,
+            Provider = request.Provider,
             EncryptedKey = encryptedKey,
             IsActive = true
         });
     }
 
     await db.SaveChangesAsync();
-    return Results.Ok(new { Success = true, Message = $"BYOK Encrypted API key for {provider} saved successfully." });
+    return Results.Ok(new { Success = true, Message = $"BYOK Encrypted API key for {request.Provider} saved successfully." });
 });
 
 app.Run();
