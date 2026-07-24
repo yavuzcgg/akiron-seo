@@ -1,26 +1,26 @@
-# AkironSeo - Sistem Mimarısı ve Teknik Tasarım Dokümanı (System Design Document v4.0 - Production Definitive)
+# AkironSeo - System Architecture & Technical Design Document (v5.0 - Definitive Production Architecture)
 
 > [!IMPORTANT]
-> **v4.0 Üretim (Production) Mimarisi ve Kritik Düzeltmeler**:
-> - **MediatR Sürüm Politikası**: NuGet paket tanımı `[12.4.0, 13.0.0)` aralığına çekildi (Tüm 12.x serisi MIT lisanslıdır).
-> - **Veri Çakışması Temizliği**: `SeoAuditPages` ve `CrawlQueue` kaldırıldı. Tek veri zinciri: `CrawlJob` → `SeoAudit` (1-1) → `CrawlResults`. `SiteSnapshot` özet satırı olarak `SeoAudit` bitişinde doldurulur. `SnapshotDiff` PostgreSQL `LAG()` pencere fonksiyonuyla hesaplanır.
-> - **Sampling Engine & AiCache Ayrımı**: HTTP seviyesinde AI response caching sampling sırasında pasifleşir (stokastik gürültüyü ölçebilmek için). Cache sadece analiz seviyesinde (Deduplication: 24 saat içinde aynı kelime sorgulanırsa bayat analiz uyarısı + "Zorla Yenile" butonu) ve deterministik işlerde (AEO/Content Writer) çalışır.
-> - **Kota Yaşam Döngüsü & İade**: Job başarısızlığında rezerve edilen token iade edilir (`UsedTokens -= estimatedCost`). Başarı durumunda gerçek harcamayla düzeltilir. Hangfire `JobId` bazlı idempotent rezervasyon + `[AutomaticRetry(Attempts = 2)]`.
-> - **ITenantContext Scoped DI Güvenliği**: `TenantJobFilter` job DI scope'u içinde `ITenantContext`'i set eder (Singleton ezilmesini ve eşzamanlı job'larda cross-tenant veri sızıntısını engeller).
-> - **Redis Yalınlaştırması (MVP)**: v1 MVP tek sunucuda çalışacağından Redis çıkarıldı. Kota ve Deduplication Postgres'te, Rate Limiting .NET `RateLimiter` middleware'inde döner.
-> - **Özel GEO Özelliği (`CitationStatus`)**: LLM'in anıp sitede bulamadığı linkler `CitationStatus = NonExistentPage` olarak işaretlenip *"AI bu konuda seni kaynak göstermek istiyor ama sayfa yok — hemen oluştur!"* fırsat bildirimi üretilir.
+> **v5.0 Architectural Updates & Core Rules**:
+> - **Language Standard**: All source code, comments, database schemas, DTOs, commit messages, and API responses are **100% IN ENGLISH**.
+> - **Multi-Tenancy Schema Alignment**: Explicit `TenantId` column denormalized across ALL tenant-scoped tables (`TrackedKeywords`, `CrawlJobs`, `CrawlResults`, `SeoAudits`, `SiteSnapshots`, `GeoAnalyses`, `AeoSchemas`, `AiContentPlans`, `Notifications`, `QuotaReservations`, `EncryptedTenantApiKeys`).
+> - **QuotaReservations Ledger Table (Table #22)**: Idempotent quota tracking via `JobId` (Unique), handling `Reserved`, `Committed`, and `Refunded` states cleanly.
+> - **Subscription Period Reset**: Nightly job transitions expired subscriptions (`CurrentPeriodEnd < UtcNow`) to `PastDue` state, blocking new jobs until admin renewal.
+> - **CitationStatus Verification Pipeline Step**: Automated HEAD/GET HTTP verification. `Valid` (2xx), `NonExistentPage` (404 - Gold Opportunity Trigger), `WrongDomain`, `Unreachable` (5xx/Timeout).
+> - **Cron Parsing**: Powered by `Cronos` library for `NextScheduledRun` computation.
 
 ---
 
-## 📌 1. Yüksek Seviye Sistem Topolojisi (High-Level Architecture - MVP v4.0)
+## 📌 1. High-Level System Topology (MVP Topology)
 
 ```
                                   +------------------------------------------------+
                                   |            Next.js 15/16 Client (App Router)   |
                                   |  - HttpOnly Cookie (Auth & Refresh Token: Lax) |
+                                  |  - Dual-Language (EN/TR) & Light/Dark Themes   |
                                   |  - TanStack Query v5 & Recharts                |
                                   +-----------------------+------------------------+
-                                                          | REST API / JSON
+                                                          | REST API / JSON (English)
                                                           v
                                   +------------------------------------------------+
                                   |   .NET 10 Web API Gateway / Global Controllers |
@@ -34,7 +34,7 @@
   +------------------------------+        +------------------------------+        +------------------------------+
   |    Application Layer (CQRS)  |        |    Hangfire Worker Engine    |        |    Infrastructure Services   |
   |  - MediatR [12.4.0, 13.0.0)  |        |  - Scoped TenantJobFilter    |        |  - Atomic Quota & Reconcile  |
-  |  - FluentValidation          |        |  - Idempotent Job Reservation|        |  - Structured AI Adapters    |
+  |  - FluentValidation          |        |  - Idempotent Job Ledger     |        |  - Structured AI Adapters    |
   |  - Scoped Tenant Behavior    |        |  - Resilience (Polly/Http)   |        |  - Serilog / OpenTelemetry   |
   +--------------+---------------+        +--------------+---------------+        +--------------+---------------+
                  |                                       |                                       |
@@ -49,23 +49,23 @@
 
 ---
 
-## 🏛️ 2. .NET 10 Clean Architecture & Global vs Tenant Varlık Ayrımı
+## 🏛️ 2. .NET 10 Clean Architecture & Global vs Tenant Entity Classification
 
-Backend 4 katmandan oluşur. Katmanlar arasındaki bağımlılık oku sadece **içe (Domain'e)** doğrudur.
+Backend consists of 4 layers following Clean Architecture dependencies pointing inward to `Domain`.
 
-### Varlık Katmanlaşması (Entity Classification)
+### Entity Classification
 
-#### 🌐 A. Global Varlıklar (`IMultiTenant` İMPLEMENTE ETMEZ)
-EF Core Global Query Filter bu tablolara uygulanmaz:
-- `User`, `RefreshToken`, `Plan`, `PromptTemplate`, `GlobalSystemLog`
+#### 🌐 A. Global Entities (DO NOT Implement `IMultiTenant`)
+EF Core Global Query Filter IS NOT applied to these tables:
+- `User`, `RefreshToken`, `Plan`, `PromptTemplate`, `AiCache`, `GlobalSystemLog`
 
-#### 🏢 B. Tenant-Scoped Varlıklar (`IMultiTenant` İMPLEMENTE EDER)
-EF Core `x => !x.IsDeleted && x.TenantId == _tenantContext.CurrentTenantId` filtresi otomatik uygulanır:
-- `TenantUser`, `Subscription`, `EncryptedTenantApiKey`, `TenantFeature`, `Website`, `TrackedKeyword`, `CrawlJob`, `CrawlResult`, `SeoAudit`, `SiteSnapshot`, `GeoAnalysis`, `AeoSchema`, `AiContentPlan`, `Notification`, `ApiUsageLog`
+#### 🏢 B. Tenant-Scoped Entities (MUST Implement `IMultiTenant` & `TenantId` Column)
+EF Core `x => !x.IsDeleted && x.TenantId == _tenantContext.CurrentTenantId` filter IS AUTOMATICALLY applied to all of these:
+- `TenantUser`, `Subscription`, `EncryptedTenantApiKey`, `TenantFeature`, `Website`, `TrackedKeyword`, `CrawlJob`, `CrawlResult`, `SeoAudit`, `SiteSnapshot`, `GeoAnalysis`, `AeoSchema`, `AiContentPlan`, `Notification`, `QuotaReservation`, `ApiUsageLog`
 
 ---
 
-## 🗄️ 3. Veritabanı Şeması (PostgreSQL ER Modeli v4.0)
+## 🗄️ 3. Complete Database Schema (22 PostgreSQL Tables)
 
 ```
 [Tenants] 1 --- * [TenantUsers] * --- 1 [Users] 1 --- * [RefreshTokens]
@@ -76,9 +76,11 @@ EF Core `x => !x.IsDeleted && x.TenantId == _tenantContext.CurrentTenantId` filt
    |
    1 --- * [EncryptedTenantApiKeys]
    |
+   1 --- * [QuotaReservations]
+   |
    1 --- * [Websites] 1 --- * [TrackedKeywords] 1 --- * [GeoAnalyses]
-               |                                            |
-               |                                            + --- * [PromptTemplates]
+               |                    |                       |
+               |                    + --- * [Cronos]        + --- * [PromptTemplates]
                |
                1 --- * [CrawlJobs] 1 --- 1 [SeoAudits] 1 --- 1 [SiteSnapshots]
                |                          |
@@ -91,64 +93,63 @@ EF Core `x => !x.IsDeleted && x.TenantId == _tenantContext.CurrentTenantId` filt
                1 --- * [Notifications]
 ```
 
-### Detaylı 22 Tablo Şeması (Eksiksiz):
+### Complete 22 Table Definitions (100% English Schemas):
 
-1. **Tenants**: `Id (Guid)`, `Name`, `Slug`, `CreatedAt`, `IsDeleted`
-2. **TenantUsers**: `TenantId`, `UserId`, `Role (Enum: Owner, Admin, Member)`, `JoinedAt`
-3. **Users**: `Id`, `Email`, `PasswordHash`, `FullName`, `IsActive`, `CreatedAt`
-4. **RefreshTokens**: `Id`, `UserId`, `Token`, `ExpiresAt`, `IsRevoked`, `CreatedAt`
-5. **EncryptedTenantApiKeys (BYOK)**: `Id`, `TenantId`, `Provider (OpenAI, Perplexity)`, `EncryptedKey (AES-256-GCM)`, `IsActive`, `CreatedAt`
-6. **Plans**: `Id`, `Name`, `PriceMonthly`, `LimitsJson (jsonb)`
-7. **Subscriptions**: `Id`, `TenantId`, `PlanId`, `Status (Active, PastDue, Cancelled)`, `MonthlyLimitTokens`, `UsedTokens`, `CurrentPeriodStart`, `CurrentPeriodEnd`
-8. **TenantFeatures**: `Id`, `TenantId`, `FeatureKey (GeoEnabled, AeoEnabled, WhiteLabel)`, `IsEnabled`
-9. **Websites**: `Id`, `TenantId`, `DomainUrl`, `Name`, `VerificationToken`, `VerificationMethod`, `IsVerified`, `BrandAliasesJson (jsonb)`, `CreatedAt`, `IsDeleted` *(Partial Index: TenantId + DomainUrl WHERE IsDeleted=false)*
-10. **TrackedKeywords**: `Id`, `WebsiteId`, `Keyword`, `Language`, `TargetEnginesJson (jsonb)`, `CronExpression`, `NextScheduledRun`, `IsActive`, `CreatedAt` *(Composite Index: IsActive + NextScheduledRun)*
-11. **CrawlJobs**: `Id`, `WebsiteId`, `Status (Pending, Running, Completed, Failed)`, `PagesDiscovered`, `StartedAt`, `CompletedAt`
-12. **CrawlResults**: `Id`, `CrawlJobId`, `PageUrl`, `StatusCode`, `Title`, `MetaDesc`, `H1Json`, `CanonicalUrl`, `IssuesJson`, `PageSpeedMetricsJson (Nullable - sadece anasayfa + N kritik sayfa)`
-13. **SeoAudits**: `Id`, `CrawlJobId`, `WebsiteId`, `OverallScore`, `RobotsTxtAiStatusJson (jsonb: GPTBot, ClaudeBot, PerplexityBot, Google-Extended)`, `CreatedAt`
-14. **SiteSnapshots**: `Id`, `SeoAuditId`, `WebsiteId`, `Score`, `TotalPagesCount`, `TotalIssuesCount`, `CreatedAt`
-15. **GeoAnalyses**: `Id`, `TrackedKeywordId`, `RunGroupId (Guid)`, `TargetEngine`, `ModelUsed`, `PromptTemplateId (FK)`, `IsMentioned (bool)`, `Position (int?)`, `MentionType (Enum: Text, Citation, Both)`, `CitationStatus (Enum: Valid, BrokenPath, WrongDomain, NonExistentPage)`, `CitationUrl`, `CompetitorsJson (jsonb)`, `RawResponseJson (jsonb - 30-90 gün pruning)`, `CreatedAt`
-16. **PromptTemplates**: `Id (Global)`, `Type (Geo, Seo, Aeo, Content)`, `Version`, `PromptText`, `VariablesJson`
-17. **AiCaches**: `Id (Global)`, `HashKey`, `TaskType`, `ResponseText`, `ExpiresAt`
-18. **AeoSchemas**: `Id`, `WebsiteId`, `PageUrl`, `SchemaType`, `JsonLdOutput (text)`, `LlmsTxtOutput (text)`, `IsValid`, `CreatedAt`
-19. **AiContentPlans**: `Id`, `WebsiteId`, `TargetKeyword`, `GeneratedMarkdownContent`, `Status`, `TokensSpent`, `CreatedAt`
-20. **Notifications**: `Id`, `TenantId`, `UserId (Nullable)`, `Type`, `Title`, `Message`, `IsRead`, `CreatedAt`
-21. **ApiUsageLogs**: `Id`, `TenantId`, `UserId`, `JobId`, `ServiceName`, `TokensUsed`, `EstimatedCostUsd`, `Timestamp`
-
----
-
-## 🤖 4. GEO Pipeline, CitationStatus & Fırsat Bildirimi
-
-1. **Jitter & Paralellik Sınırlı Sampling**:
-   - 3-5 örneklem grubu çağrısı yaparken BYOK anahtarlarının rate limit yememesi için çağrılar **2-3 paralellik sınırı ve jitter (rastgele gecikme)** ile yürütülür.
-2. **Analiz Seviyesi Deduplication (24 Saat)**:
-   - Kullanıcı 24 saat içinde aynı kelimeyi tekrar sorgularsa yeni LLM çağrısı yapılmaz. Mevcut `GeoAnalysis` sonucu *"Son analiz X saat önce yapıldı"* uyarısıyla gösterilir. Kullanıcı isterse *"Zorla Yenile"* butonu ile yeni analiz başlatır.
-3. **Fırsat Bildirimi (NonExistentPage Feature)**:
-   - LLM marka adınızı kaynak gösterip alan adınızda var olmayan bir URL (`CitationStatus = NonExistentPage`) verdiyse sistem otomatik bildirim üretir:
-   > 💡 **Altın Fırsat**: *"Yapay zeka [Kelime] konusunda sitenizi kaynak göstermek istiyor ancak '/ornek-sayfa' adresi sitenizde bulunamadı. Bu sayfayı oluşturarak GEO trafiğini anında yakalayabilirsiniz!"*
+1. **Tenants**: `Id (Guid)`, `Name (string)`, `Slug (string)`, `CreatedAt (DateTime)`, `IsDeleted (bool)`
+2. **TenantUsers**: `TenantId (Guid)`, `UserId (Guid)`, `Role (UserRoleEnum: Owner, Admin, Member)`, `JoinedAt (DateTime)`
+3. **Users**: `Id (Guid)`, `Email (string)`, `PasswordHash (string)`, `FullName (string)`, `IsActive (bool)`, `CreatedAt (DateTime)`
+4. **RefreshTokens**: `Id (Guid)`, `UserId (Guid)`, `Token (string)`, `ExpiresAt (DateTime)`, `IsRevoked (bool)`, `CreatedAt (DateTime)`
+5. **EncryptedTenantApiKeys**: `Id (Guid)`, `TenantId (Guid)`, `Provider (AiProviderEnum: OpenAI, Perplexity, Gemini, Anthropic)`, `EncryptedKey (string - AES-256-GCM)`, `IsActive (bool)`, `CreatedAt (DateTime)`
+6. **Plans**: `Id (Guid)`, `Name (string)`, `PriceMonthly (decimal)`, `LimitsJson (jsonb)`
+7. **Subscriptions**: `Id (Guid)`, `TenantId (Guid)`, `PlanId (Guid)`, `Status (SubscriptionStatusEnum: Active, PastDue, Cancelled)`, `MonthlyLimitTokens (long)`, `UsedTokens (long)`, `CurrentPeriodStart (DateTime)`, `CurrentPeriodEnd (DateTime)`
+8. **TenantFeatures**: `Id (Guid)`, `TenantId (Guid)`, `FeatureKey (string: GeoEnabled, AeoEnabled, WhiteLabel)`, `IsEnabled (bool)`
+9. **QuotaReservations**: `Id (Guid)`, `TenantId (Guid)`, `SubscriptionId (Guid)`, `JobId (string - Unique Index)`, `EstimatedTokens (long)`, `ActualTokens (long?)`, `Status (ReservationStatusEnum: Reserved, Committed, Refunded)`, `CreatedAt (DateTime)`
+10. **Websites**: `Id (Guid)`, `TenantId (Guid)`, `DomainUrl (string)`, `Name (string)`, `VerificationToken (string)`, `VerificationMethod (VerificationMethodEnum: DnsTxt, MetaTag)`, `IsVerified (bool)`, `BrandAliasesJson (jsonb: ["akironseo.com", "Akiron SEO"])`, `CreatedAt (DateTime)`, `IsDeleted (bool)` *(Partial Index: TenantId + DomainUrl WHERE IsDeleted=false)*
+11. **TrackedKeywords**: `Id (Guid)`, `TenantId (Guid)`, `WebsiteId (Guid)`, `Keyword (string)`, `Language (string)`, `TargetEnginesJson (jsonb)`, `CronExpression (string)`, `NextScheduledRun (DateTime?)`, `IsActive (bool)`, `IsDeleted (bool)`, `CreatedAt (DateTime)` *(Composite Index: IsActive + NextScheduledRun)*
+12. **CrawlJobs**: `Id (Guid)`, `TenantId (Guid)`, `WebsiteId (Guid)`, `Status (CrawlStatusEnum: Pending, Running, Completed, Failed)`, `PagesDiscovered (int)`, `StartedAt (DateTime?)`, `CompletedAt (DateTime?)`
+13. **CrawlResults**: `Id (Guid)`, `TenantId (Guid)`, `CrawlJobId (Guid)`, `PageUrl (string)`, `StatusCode (int)`, `Title (string)`, `MetaDescription (string)`, `H1Json (jsonb)`, `CanonicalUrl (string)`, `IssuesJson (jsonb)`, `PageSpeedMetricsJson (jsonb - Nullable: homepage + N critical pages)`
+14. **SeoAudits**: `Id (Guid)`, `TenantId (Guid)`, `CrawlJobId (Guid)`, `WebsiteId (Guid)`, `OverallScore (int)`, `RobotsTxtAiStatusJson (jsonb: GPTBot, ClaudeBot, PerplexityBot, Google-Extended)`, `CreatedAt (DateTime)`
+15. **SiteSnapshots**: `Id (Guid)`, `TenantId (Guid)`, `SeoAuditId (Guid)`, `WebsiteId (Guid)`, `Score (int)`, `TotalPagesCount (int)`, `TotalIssuesCount (int)`, `CreatedAt (DateTime)`
+16. **GeoAnalyses**: `Id (Guid)`, `TenantId (Guid)`, `TrackedKeywordId (Guid)`, `RunGroupId (Guid)`, `TargetEngine (TargetLlmEnum)`, `ModelUsed (string)`, `PromptTemplateId (Guid - FK)`, `IsMentioned (bool)`, `Position (int?)`, `MentionType (MentionTypeEnum: Text, Citation, Both)`, `CitationStatus (CitationStatusEnum: Valid, NonExistentPage, WrongDomain, Unreachable)`, `CitationUrl (string)`, `CompetitorsJson (jsonb)`, `RawResponseJson (jsonb - 30-90 day pruning)`, `CreatedAt (DateTime)`
+17. **PromptTemplates**: `Id (Guid - Global)`, `Type (PromptTypeEnum: Geo, Seo, Aeo, Content)`, `Version (int)`, `PromptText (string)`, `VariablesJson (jsonb)`
+18. **AiCaches**: `Id (Guid - Global)`, `HashKey (string)`, `TaskType (string)`, `ResponseText (string)`, `ExpiresAt (DateTime)`
+19. **GlobalSystemLogs**: `Id (Guid - Global)`, `LogLevel (string)`, `Message (string)`, `Exception (string)`, `CorrelationId (string)`, `Timestamp (DateTime)`
+20. **AeoSchemas**: `Id (Guid)`, `TenantId (Guid)`, `WebsiteId (Guid)`, `PageUrl (string)`, `SchemaType (SchemaTypeEnum)`, `JsonLdOutput (string)`, `LlmsTxtOutput (string)`, `IsValid (bool)`, `CreatedAt (DateTime)`
+21. **AiContentPlans**: `Id (Guid)`, `TenantId (Guid)`, `WebsiteId (Guid)`, `TargetKeyword (string)`, `GeneratedMarkdownContent (string)`, `Status (ContentStatusEnum)`, `TokensSpent (long)`, `CreatedAt (DateTime)`
+22. **Notifications**: `Id (Guid)`, `TenantId (Guid)`, `UserId (Guid?)`, `Type (NotificationTypeEnum)`, `Title (string)`, `Message (string)`, `IsRead (bool)`, `CreatedAt (DateTime)`
 
 ---
 
-## ⚡ 5. Atomik Kota Yönetimi, Mutabakat & Scoped Hangfire Scope
+## 🤖 4. GEO Pipeline & CitationStatus Verification Step
 
-1. **Atomik Rezervasyon & Mutabakat**:
-   - Job başlangıcında tahmini maliyet atomik olarak düşülür:
-     ```sql
-     UPDATE "Subscriptions"
-     SET "UsedTokens" = "UsedTokens" + @estimatedCost
-     WHERE "Id" = @subId AND ("UsedTokens" + @estimatedCost) <= "MonthlyLimitTokens";
-     ```
-   - **Job Başarısız Olursa (Fail)**: `UsedTokens = UsedTokens - estimatedCost` ile kota iade edilir.
-   - **Job Başarılı Olursa (Success)**: `UsedTokens = UsedTokens + (actualCost - estimatedCost)` ile mutabakat yapılır.
+1. **Jitter & Parallelism-Limited Sampling**: 3-5 sample iterations with max 2-3 concurrency + random jitter.
+2. **Analysis-Level Deduplication (24 Hours)**: Return existing `GeoAnalysis` if queried within 24h with a "Force Refresh" override.
+3. **URL Verification Engine Step**:
+   - Send HTTP `HEAD` request (fallback to `GET`) with 5-second timeout and redirect tracking.
+   - User's domain + 2xx status -> `CitationStatus.Valid`
+   - User's domain + 404 status -> `CitationStatus.NonExistentPage` (**Triggers Gold Opportunity Notification**)
+   - External domain -> `CitationStatus.WrongDomain`
+   - Timeout / 5xx error -> `CitationStatus.Unreachable`
+4. **Gold Opportunity Actionable Remediation**:
+   > 💡 **Gold Opportunity Trigger**: *"AI generative engine tried to cite your domain for '[Keyword]', but the target page '/missing-path' returned 404. Create this page now using our AI Content Writer to capture instant GEO traffic!"*
+
+---
+
+## ⚡ 5. Quota Reservations Ledger & Scoped Hangfire Execution
+
+1. **QuotaReservations Ledger Flow**:
+   - `AtomicQuotaBehavior` inserts `QuotaReservation` record with `Status = Reserved` and atomically increments `Subscriptions.UsedTokens`.
+   - **Job Failure**: `Status = Refunded`, atomically decrements `Subscriptions.UsedTokens`.
+   - **Job Success**: `Status = Committed`, adjusts `Subscriptions.UsedTokens` with actual token usage difference.
 2. **Hangfire Scoped Tenant Filter**:
-   - `TenantJobFilter` sınıfı `IServerFilter` aşamasında job'ın kendi DI Scope'u (`IServiceScope`) içerisinden `ITenantContext` alıp `TenantId`'yi set eder.
-   - `[AutomaticRetry(Attempts = 2)]` ile Hangfire retry adedi sınırlanır; Polly HTTP seviyesindeki anlık hataları çözer.
-3. **Dönüşüm Sıfırlama**:
-   - Gece çalışan bir Hangfire Job'ı `CurrentPeriodEnd < DateTime.UtcNow` olan aboneliklerin `UsedTokens` değerini `0` yapar.
+   - `TenantJobFilter` activates `ITenantContext` within the job's DI `IServiceScope`.
+   - `[AutomaticRetry(Attempts = 2)]` limits retries. Polly handles transient HTTP retries.
+3. **Subscription Period Reset**:
+   - Nightly Hangfire job checks `CurrentPeriodEnd < DateTime.UtcNow` for active subscriptions and updates status to `PastDue`, blocking new job submissions until manual wire-transfer/admin renewal.
 
 ---
 
-## 💳 6. MVP Ödeme ve Abonelik Kararı
+## 🎨 6. Frontend Internationalization & Design Standards
 
-- **v1 MVP Modeli**: **Havale / B2B Manuel Onay + Admin CRUD Paneli**.
-  - `Subscriptions` ve `Plans` veritabanı altyapısı iyzico/PayTR/Paddle entegrasyonuna %100 hazırdır. SuperAdmin panelinden manuel abonelik atama/güncelleme yapılır.
+- **Language Support**: Dual-language UI (English & Turkish toggle via `next-intl` or React i18n context). All API payloads and standard defaults are in **English**.
+- **Theme Support**: Seamless Light Mode & Dark Mode toggle (Tailwind CSS `dark:` class strategy + CSS variables).
