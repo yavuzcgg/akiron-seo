@@ -1,3 +1,4 @@
+using AkironSeo.API.Middleware;
 using AkironSeo.Application.Auth.Dtos;
 using AkironSeo.Application.Common.Interfaces;
 using AkironSeo.Domain.Entities.Global;
@@ -6,8 +7,18 @@ using AkironSeo.Domain.Enums;
 using AkironSeo.Infrastructure.Persistence;
 using AkironSeo.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog Structured Logging
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 // Add Services
 builder.Services.AddScoped<ITenantContext, TenantContext>();
@@ -36,6 +47,10 @@ builder.Services.AddCors(options =>
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+// Register Global Exception Handling Middleware
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+app.UseSerilogRequestLogging();
 
 // Seed Database on Startup
 using (var scope = app.Services.CreateScope())
@@ -81,7 +96,6 @@ app.MapPost("/api/v1/auth/login", async (LoginRequestDto request, AkironDbContex
     var role = tenantUser?.Role.ToString() ?? "Member";
     var tenantId = tenantUser?.TenantId ?? Guid.Empty;
 
-    // Set HttpOnly Refresh Cookie
     return Results.Ok(new AuthResponseDto(
         Success: true,
         Message: "Login successful.",
