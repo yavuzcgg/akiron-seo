@@ -1,0 +1,308 @@
+"use client";
+
+import { useApp } from "@/components/providers";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+interface Website {
+  id: string;
+  name: string;
+  domainUrl: string;
+  isVerified: boolean;
+  verificationToken: string;
+  createdAt: string;
+}
+
+export default function DashboardPage() {
+  const { theme, toggleTheme, lang, setLang, t } = useApp();
+  const [tenantId, setTenantId] = useState<string>("33333333-3333-3333-3333-333333333333");
+  const [websites, setWebsites] = useState<Website[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Form states
+  const [newSiteName, setNewSiteName] = useState("");
+  const [newDomainUrl, setNewDomainUrl] = useState("");
+  const [apiKeyProvider, setApiKeyProvider] = useState("1"); // OpenAI = 1
+  const [apiKeyValue, setApiKeyValue] = useState("");
+  const [keywordSiteId, setKeywordSiteId] = useState("");
+  const [keywordText, setKeywordText] = useState("");
+
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchWebsites = async () => {
+    try {
+      const res = await fetch(`http://localhost:5248/api/v1/websites?tenantId=${tenantId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setWebsites(data);
+      }
+    } catch {
+      // API Offline fallback
+    }
+  };
+
+  useEffect(() => {
+    fetchWebsites();
+  }, [tenantId]);
+
+  const handleAddWebsite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const res = await fetch(`http://localhost:5248/api/v1/websites?tenantId=${tenantId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newSiteName, domainUrl: newDomainUrl }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage(`Website '${newSiteName}' added successfully!`);
+        setNewSiteName("");
+        setNewDomainUrl("");
+        fetchWebsites();
+      } else {
+        setError(data.detail || data.message || "Failed to add website.");
+      }
+    } catch {
+      setError("Could not connect to API server.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyWebsite = async (websiteId: string) => {
+    setMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`http://localhost:5248/api/v1/websites/${websiteId}/verify?tenantId=${tenantId}&method=1`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok && data.verified) {
+        setMessage("Website ownership verified successfully!");
+        fetchWebsites();
+      } else {
+        setError("Verification pending. Please check DNS TXT or Meta tag.");
+      }
+    } catch {
+      setError("Verification check failed.");
+    }
+  };
+
+  const handleRunCrawl = async (websiteId: string) => {
+    setMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`http://localhost:5248/api/v1/websites/${websiteId}/crawl?tenantId=${tenantId}`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage(`Crawl completed! Audit Score: ${data.score}/100`);
+      } else {
+        setError("Crawl failed.");
+      }
+    } catch {
+      setError("Crawler service connection failed.");
+    }
+  };
+
+  const handleSaveApiKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`http://localhost:5248/api/v1/tenant/api-keys?tenantId=${tenantId}&provider=${apiKeyProvider}&apiKey=${encodeURIComponent(apiKeyValue)}`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMessage("BYOK API key encrypted with AES-256-GCM and saved!");
+        setApiKeyValue("");
+      } else {
+        setError("Failed to save API key.");
+      }
+    } catch {
+      setError("API key service failed.");
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col justify-between p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+      {/* Top Navigation */}
+      <header className="flex flex-wrap items-center justify-between gap-4 py-3 border-b border-[var(--border-color)]">
+        <Link href="/" className="flex items-center space-x-2.5">
+          <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center font-extrabold text-white text-xl shadow-md">
+            A
+          </div>
+          <span className="font-extrabold text-xl tracking-tight">Akiron SEO Dashboard</span>
+        </Link>
+
+        <div className="flex items-center space-x-3 text-sm font-medium">
+          <button
+            onClick={() => setLang(lang === "en" ? "tr" : "en")}
+            className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] hover:opacity-80 transition"
+          >
+            🌐 {lang.toUpperCase()}
+          </button>
+          <button
+            onClick={toggleTheme}
+            className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] hover:opacity-80 transition"
+          >
+            {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
+          </button>
+          <Link href="/" className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-slate-400 hover:text-white">
+            Logout
+          </Link>
+        </div>
+      </header>
+
+      {/* Main Content Grid */}
+      <main className="space-y-6">
+        {/* Status Messages */}
+        {message && (
+          <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-semibold">
+            {message}
+          </div>
+        )}
+        {error && (
+          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-semibold">
+            {error}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Column 1: Websites List & Verification */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Add Website Form */}
+            <div className="p-6 rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] space-y-4">
+              <h2 className="text-lg font-bold">🌐 Add New Website</h2>
+              <form onSubmit={handleAddWebsite} className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                <input
+                  type="text"
+                  placeholder="Site Name (e.g. My Shop)"
+                  value={newSiteName}
+                  onChange={(e) => setNewSiteName(e.target.value)}
+                  required
+                  className="sm:col-span-2 px-4 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="Domain (e.g. myshop.com)"
+                  value={newDomainUrl}
+                  onChange={(e) => setNewDomainUrl(e.target.value)}
+                  required
+                  className="sm:col-span-2 px-4 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition text-sm disabled:opacity-50"
+                >
+                  {loading ? "Adding..." : "+ Add Site"}
+                </button>
+              </form>
+            </div>
+
+            {/* Registered Websites Table */}
+            <div className="p-6 rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] space-y-4">
+              <h2 className="text-lg font-bold">📋 Registered Websites</h2>
+              {websites.length === 0 ? (
+                <p className="text-sm text-slate-400">No websites added yet. Add a website to start crawling!</p>
+              ) : (
+                <div className="space-y-3">
+                  {websites.map((site) => (
+                    <div
+                      key={site.id}
+                      className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] flex flex-wrap items-center justify-between gap-3"
+                    >
+                      <div>
+                        <h4 className="font-bold text-base">{site.name}</h4>
+                        <p className="text-xs text-slate-400">{site.domainUrl}</p>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        {site.isVerified ? (
+                          <span className="px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-semibold">
+                            ✓ Verified
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleVerifyWebsite(site.id)}
+                            className="px-3 py-1 rounded-lg border border-amber-500/30 text-amber-400 text-xs font-semibold hover:bg-amber-500/10"
+                          >
+                            Verify Ownership
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => handleRunCrawl(site.id)}
+                          className="px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow"
+                        >
+                          ⚡ Run Audit
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Column 2: BYOK Key Settings */}
+          <div className="space-y-6">
+            <div className="p-6 rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] space-y-4">
+              <h2 className="text-lg font-bold">🔐 BYOK (Bring Your Own Key)</h2>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Save your private LLM API keys encrypted with enterprise <strong>AES-256-GCM</strong>.
+              </p>
+
+              <form onSubmit={handleSaveApiKey} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">Provider</label>
+                  <select
+                    value={apiKeyProvider}
+                    onChange={(e) => setApiKeyProvider(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] text-sm"
+                  >
+                    <option value="1">OpenAI (ChatGPT)</option>
+                    <option value="2">Perplexity AI</option>
+                    <option value="3">Google Gemini</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">API Key</label>
+                  <input
+                    type="password"
+                    placeholder="sk-proj-••••••••••••••••"
+                    value={apiKeyValue}
+                    onChange={(e) => setApiKeyValue(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] text-sm font-mono"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-2.5 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition text-sm shadow"
+                >
+                  🔒 Encrypt & Save Key
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="py-4 border-t border-[var(--border-color)] text-center text-xs text-slate-500">
+        {t("rightsReserved")}
+      </footer>
+    </div>
+  );
+}

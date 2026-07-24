@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AkironSeo.Infrastructure.Persistence;
 
-public class AkironDbContext : DbContext
+public class AkironDbContext : DbContext, IAkironDbContext
 {
     private readonly ITenantContext _tenantContext;
 

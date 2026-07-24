@@ -11,6 +11,7 @@ public class Website : BaseEntity, IMultiTenant, ISoftDelete
     public string VerificationToken { get; set; } = Guid.NewGuid().ToString("N");
     public VerificationMethodEnum VerificationMethod { get; set; } = VerificationMethodEnum.DnsTxt;
     public bool IsVerified { get; set; } = false;
+    public DateTime? VerifiedAt { get; set; }
     public string BrandAliasesJson { get; set; } = "[]";
 
     // Soft Delete
