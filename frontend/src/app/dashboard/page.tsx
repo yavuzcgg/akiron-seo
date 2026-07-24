@@ -30,6 +30,14 @@ export default function DashboardPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Load tenantId from localStorage on mount
+  useEffect(() => {
+    const savedTenantId = localStorage.getItem("akiron_tenant_id");
+    if (savedTenantId) {
+      setTenantId(savedTenantId);
+    }
+  }, []);
+
   const fetchWebsites = async () => {
     try {
       const res = await fetch(`http://localhost:5248/api/v1/websites?tenantId=${tenantId}`);
@@ -51,7 +59,11 @@ export default function DashboardPage() {
       const res = await fetch(`http://localhost:5248/api/v1/websites/${websiteId}/latest-audit?tenantId=${tenantId}`);
       if (res.ok) {
         const report = await res.json();
-        setActiveAuditReport(report);
+        if (report) {
+          setActiveAuditReport(report);
+        } else {
+          setError("No audit report available yet for this website. Click '⚡ Run Audit' to start!");
+        }
       }
     } catch {
       setError("Failed to fetch audit report.");

@@ -213,7 +213,6 @@ app.MapGet("/api/v1/websites/{id}/latest-audit", async (Guid id, Guid tenantId, 
 {
     tenantContext.SetTenantId(tenantId);
     var auditReport = await mediator.Send(new GetLatestWebsiteAuditQuery(id));
-    if (auditReport == null) return Results.NotFound(new { Message = "No audit results found for this website." });
     return Results.Ok(auditReport);
 });
 
