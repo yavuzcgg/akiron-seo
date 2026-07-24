@@ -1,10 +1,11 @@
 using System.Security.Cryptography;
 using System.Text;
-using AkironSeo.Application.Common.Interfaces;
 using AkironSeo.Domain.Entities.Global;
 using AkironSeo.Domain.Entities.TenantScoped;
 using AkironSeo.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace AkironSeo.Infrastructure.Persistence;
 
@@ -12,10 +13,27 @@ public static class DbInitializer
 {
     public static async Task SeedAsync(AkironDbContext context)
     {
-        // Apply migrations automatically if any
-        if (context.Database.IsRelational())
+        try
         {
-            await context.Database.MigrateAsync();
+            if (context.Database.IsRelational())
+            {
+                var databaseCreator = context.Database.GetService<IRelationalDatabaseCreator>();
+                if (databaseCreator != null && await databaseCreator.ExistsAsync())
+                {
+                    if (!await databaseCreator.HasTablesAsync())
+                    {
+                        await databaseCreator.CreateTablesAsync();
+                    }
+                }
+            }
+            else
+            {
+                await context.Database.EnsureCreatedAsync();
+            }
+        }
+        catch
+        {
+            // Fallback for InMemory / existing schema
         }
 
         // Seed Plans if empty

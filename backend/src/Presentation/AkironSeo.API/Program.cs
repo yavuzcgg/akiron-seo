@@ -34,13 +34,10 @@ builder.Services.AddScoped<IWebCrawlerService, WebCrawlerService>();
 // Register MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(GetWebsitesQuery).Assembly));
 
-// Database Context (PostgreSQL or InMemory for fallback)
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-    ?? "Host=localhost;Port=5432;Database=akironseo_db;Username=akiron_user;Password=akiron_password";
-
+// Database Context (InMemory for dev reliability / fallback)
 builder.Services.AddDbContext<AkironDbContext>((sp, options) =>
 {
-    options.UseNpgsql(connectionString);
+    options.UseInMemoryDatabase("AkironDevDb");
 });
 
 builder.Services.AddScoped<IAkironDbContext>(sp => sp.GetRequiredService<AkironDbContext>());
