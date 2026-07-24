@@ -1,5 +1,6 @@
 "use client";
 
+import AuditDetailsModal, { AuditReportData } from "@/components/AuditDetailsModal";
 import { useApp } from "@/components/providers";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -18,6 +19,7 @@ export default function DashboardPage() {
   const [tenantId, setTenantId] = useState<string>("33333333-3333-3333-3333-333333333333");
   const [websites, setWebsites] = useState<Website[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeAuditReport, setActiveAuditReport] = useState<AuditReportData | null>(null);
 
   // Form states
   const [newSiteName, setNewSiteName] = useState("");
@@ -43,6 +45,18 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchWebsites();
   }, [tenantId]);
+
+  const fetchLatestAudit = async (websiteId: string) => {
+    try {
+      const res = await fetch(`http://localhost:5248/api/v1/websites/${websiteId}/latest-audit?tenantId=${tenantId}`);
+      if (res.ok) {
+        const report = await res.json();
+        setActiveAuditReport(report);
+      }
+    } catch {
+      setError("Failed to fetch audit report.");
+    }
+  };
 
   const handleAddWebsite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +115,7 @@ export default function DashboardPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         setMessage(`Crawl completed! Audit Score: ${data.score}/100`);
+        fetchLatestAudit(websiteId);
       } else {
         setError("Crawl failed.");
       }
@@ -170,8 +185,13 @@ export default function DashboardPage() {
       <main className="space-y-6">
         {/* Status Messages */}
         {message && (
-          <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-semibold">
-            {message}
+          <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-semibold flex items-center justify-between">
+            <span>{message}</span>
+            {message.includes("Audit Score") && (
+              <span className="text-xs underline font-bold cursor-pointer" onClick={() => activeAuditReport && fetchLatestAudit(activeAuditReport.websiteId)}>
+                View Report Modal ↓
+              </span>
+            )}
           </div>
         )}
         {error && (
@@ -245,6 +265,13 @@ export default function DashboardPage() {
                         )}
 
                         <button
+                          onClick={() => fetchLatestAudit(site.id)}
+                          className="px-3 py-1 rounded-lg border border-blue-500/30 text-blue-400 text-xs font-semibold hover:bg-blue-500/10"
+                        >
+                          📊 Report
+                        </button>
+
+                        <button
                           onClick={() => handleRunCrawl(site.id)}
                           className="px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow"
                         >
@@ -303,6 +330,12 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+
+      {/* Detailed SEO Audit Report Modal */}
+      <AuditDetailsModal
+        report={activeAuditReport}
+        onClose={() => setActiveAuditReport(null)}
+      />
 
       {/* Footer */}
       <footer className="py-4 border-t border-[var(--border-color)] text-center text-xs text-slate-500">

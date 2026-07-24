@@ -209,6 +209,14 @@ app.MapPost("/api/v1/websites/{id}/crawl", async (Guid id, Guid tenantId, ITenan
     return Results.Ok(new { Success = true, AuditId = audit.Id, Score = audit.OverallScore });
 });
 
+app.MapGet("/api/v1/websites/{id}/latest-audit", async (Guid id, Guid tenantId, ITenantContext tenantContext, IMediator mediator) =>
+{
+    tenantContext.SetTenantId(tenantId);
+    var auditReport = await mediator.Send(new GetLatestWebsiteAuditQuery(id));
+    if (auditReport == null) return Results.NotFound(new { Message = "No audit results found for this website." });
+    return Results.Ok(auditReport);
+});
+
 app.MapPost("/api/v1/keywords", async (Guid tenantId, AddTrackedKeywordCommand command, ITenantContext tenantContext, IMediator mediator) =>
 {
     tenantContext.SetTenantId(tenantId);
