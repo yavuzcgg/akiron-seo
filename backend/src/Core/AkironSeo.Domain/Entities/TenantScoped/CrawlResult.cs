@@ -1,0 +1,21 @@
+using AkironSeo.Domain.Common;
+
+namespace AkironSeo.Domain.Entities.TenantScoped;
+
+public class CrawlResult : BaseEntity, IMultiTenant
+{
+    public Guid TenantId { get; set; }
+    public Guid CrawlJobId { get; set; }
+    public string PageUrl { get; set; } = string.Empty;
+    public int StatusCode { get; set; } = 200;
+    public string Title { get; set; } = string.Empty;
+    public string MetaDescription { get; set; } = string.Empty;
+    public string H1Json { get; set; } = "[]";
+    public string CanonicalUrl { get; set; } = string.Empty;
+    public string IssuesJson { get; set; } = "[]";
+    public string? PageSpeedMetricsJson { get; set; }
+
+    // Navigation Properties
+    public Tenant Tenant { get; set; } = null!;
+    public CrawlJob CrawlJob { get; set; } = null!;
+}
