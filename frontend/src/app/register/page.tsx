@@ -7,23 +7,61 @@ import { useState } from "react";
 export default function RegisterPage() {
   const { t } = useApp();
   const [tenantName, setTenantName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`Phase 0 Auth Shell Mock: Registered Organization '${tenantName}' with Admin Email '${email}'`);
+    setLoading(true);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const res = await fetch("http://localhost:5248/api/v1/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantName, fullName, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setMessage(`Success! Organization '${tenantName}' registered. TenantId: ${data.tenantId}`);
+      } else {
+        setError(data.message || "Failed to register organization.");
+      }
+    } catch (err: any) {
+      setError("Could not connect to API server at http://localhost:5248");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-md p-8 rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] shadow-xl space-y-6">
+      <div className="w-full max-w-md p-6 sm:p-8 rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] shadow-xl space-y-6">
         <div className="text-center space-y-2">
           <Link href="/" className="inline-block font-extrabold text-2xl tracking-tight text-blue-500">
-            AkironSeo
+            Akiron SEO
           </Link>
           <h2 className="text-xl font-bold">{t("register")}</h2>
         </div>
+
+        {message && (
+          <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-semibold">
+            {message}
+          </div>
+        )}
+
+        {error && (
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -33,6 +71,18 @@ export default function RegisterPage() {
               value={tenantName}
               onChange={(e) => setTenantName(e.target.value)}
               placeholder="Acme Digital Agency"
+              required
+              className="w-full px-4 py-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-400 mb-1">{t("fullName")}</label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="John Doe"
               required
               className="w-full px-4 py-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
@@ -64,9 +114,10 @@ export default function RegisterPage() {
 
           <button
             type="submit"
-            className="w-full py-3 rounded-lg bg-blue-600 font-bold text-white hover:bg-blue-700 transition"
+            disabled={loading}
+            className="w-full py-3 rounded-lg bg-blue-600 font-bold text-white hover:bg-blue-700 transition disabled:opacity-50"
           >
-            {t("submitRegister")}
+            {loading ? "Registering..." : t("submitRegister")}
           </button>
         </form>
 
