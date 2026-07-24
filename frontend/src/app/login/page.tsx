@@ -2,10 +2,13 @@
 
 import { useApp } from "@/components/providers";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function LoginPage() {
   const { t } = useApp();
+  const router = useRouter();
+
   const [email, setEmail] = useState("admin@akironseo.com");
   const [password, setPassword] = useState("Admin123!");
   const [loading, setLoading] = useState(false);
@@ -28,12 +31,21 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        setMessage(`Success! Signed in as ${data.userEmail} (Role: ${data.role}). Workspace TenantId: ${data.tenantId}`);
+        // Save Auth Session
+        if (data.accessToken) localStorage.setItem("akiron_token", data.accessToken);
+        if (data.tenantId) localStorage.setItem("akiron_tenant_id", data.tenantId);
+
+        setMessage("Welcome back! Redirecting to dashboard...");
+
+        // Auto Redirect to Dashboard
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 800);
       } else {
-        setError(data.message || "Failed to sign in.");
+        setError(data.message || "Invalid email or password.");
       }
-    } catch (err: any) {
-      setError("Could not connect to API server at http://localhost:5248");
+    } catch {
+      setError("Could not connect to server. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -50,13 +62,13 @@ export default function LoginPage() {
         </div>
 
         {message && (
-          <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-semibold">
+          <div className="p-3.5 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-semibold text-center">
             {message}
           </div>
         )}
 
         {error && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
+          <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold text-center">
             {error}
           </div>
         )}
