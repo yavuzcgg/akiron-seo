@@ -1,15 +1,21 @@
 using AkironSeo.Application.Common.Interfaces;
 using AkironSeo.Domain.Entities.TenantScoped;
 using AkironSeo.Domain.Enums;
+using AkironSeo.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace AkironSeo.Infrastructure.Services;
 
+/// <summary>
+/// Idempotent quota ledger. Every balance change is a single conditional UPDATE so that
+/// concurrent callers cannot lose each other's writes, and each job id may be reserved once.
+/// </summary>
 public class QuotaLedgerService : IQuotaLedgerService
 {
-    private readonly IAkironDbContext _dbContext;
+    private readonly AkironDbContext _dbContext;
 
-    public QuotaLedgerService(IAkironDbContext dbContext)
+    public QuotaLedgerService(AkironDbContext dbContext)
     {
         _dbContext = dbContext;
     }
@@ -53,50 +59,150 @@ public class QuotaLedgerService : IQuotaLedgerService
         );
     }
 
+    /// <summary>
+    /// Reserves <paramref name="estimatedTokens"/> against the tenant's monthly allowance.
+    /// Safe to call repeatedly with the same <paramref name="jobId"/>: only the first call debits.
+    /// Returns false when the reservation would exceed the allowance or the tenant has no subscription.
+    /// </summary>
     public async Task<bool> ReserveQuotaAsync(Guid tenantId, string jobId, long estimatedTokens, CancellationToken cancellationToken = default)
     {
-        var subscription = await _dbContext.Subscriptions
-            .FirstOrDefaultAsync(s => s.TenantId == tenantId, cancellationToken);
+        // Query filters are bypassed throughout: background jobs carry no tenant context,
+        // and the job id is globally unique anyway.
+        var existingStatus = await _dbContext.QuotaReservations
+            .IgnoreQueryFilters()
+            .Where(r => r.JobId == jobId)
+            .Select(r => (ReservationStatusEnum?)r.Status)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (subscription == null) return false;
-
-        subscription.UsedTokens += estimatedTokens;
-
-        var reservation = new QuotaReservation
+        if (existingStatus is not null)
         {
-            TenantId = tenantId,
-            SubscriptionId = subscription.Id,
-            JobId = jobId,
-            EstimatedTokens = estimatedTokens,
-            Status = ReservationStatusEnum.Reserved
-        };
+            // Job ids are single-use. A live reservation makes this retry a no-op success;
+            // a refunded one cannot be re-reserved, so the caller must not proceed.
+            return existingStatus != ReservationStatusEnum.Refunded;
+        }
 
-        _dbContext.QuotaReservations.Add(reservation);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+            var subscriptionId = await _dbContext.Subscriptions
+                .IgnoreQueryFilters()
+                .Where(s => s.TenantId == tenantId)
+                .Select(s => (Guid?)s.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (subscriptionId is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
+
+            // Conditional debit. Zero rows means the allowance would have been exceeded;
+            // the WHERE clause is what keeps concurrent reservations from overdrawing.
+            var debitedRows = await _dbContext.Subscriptions
+                .IgnoreQueryFilters()
+                .Where(s => s.Id == subscriptionId && s.UsedTokens + estimatedTokens <= s.MonthlyLimitTokens)
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(s => s.UsedTokens, s => s.UsedTokens + estimatedTokens),
+                    cancellationToken);
+
+            if (debitedRows == 0)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
+
+            var entry = _dbContext.QuotaReservations.Add(new QuotaReservation
+            {
+                TenantId = tenantId,
+                SubscriptionId = subscriptionId.Value,
+                JobId = jobId,
+                EstimatedTokens = estimatedTokens,
+                Status = ReservationStatusEnum.Reserved
+            });
+
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                entry.State = EntityState.Detached;
+                await transaction.RollbackAsync(cancellationToken);
+
+                // A concurrent caller inserted this job id first; their debit stands, so the
+                // reservation this caller asked for does exist.
+                if (exception is DbUpdateException updateException && IsUniqueViolation(updateException))
+                {
+                    return true;
+                }
+
+                throw;
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return true;
+        });
     }
 
+    /// <summary>
+    /// Returns a reservation's tokens to the tenant's allowance.
+    /// Safe to call repeatedly: only the call that flips Reserved to Refunded credits the tokens back.
+    /// </summary>
     public async Task<bool> RefundQuotaAsync(string jobId, CancellationToken cancellationToken = default)
     {
-        var reservation = await _dbContext.QuotaReservations
-            .FirstOrDefaultAsync(r => r.JobId == jobId, cancellationToken);
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
 
-        // Idempotency check: if reservation does not exist or was already refunded, return early
-        if (reservation == null || reservation.Status == ReservationStatusEnum.Refunded)
+        return await strategy.ExecuteAsync(async () =>
         {
-            return false;
-        }
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
-        var subscription = await _dbContext.Subscriptions
-            .FirstOrDefaultAsync(s => s.Id == reservation.SubscriptionId, cancellationToken);
+            var reservation = await _dbContext.QuotaReservations
+                .IgnoreQueryFilters()
+                .Where(r => r.JobId == jobId)
+                .Select(r => new { r.SubscriptionId, r.EstimatedTokens })
+                .FirstOrDefaultAsync(cancellationToken);
 
-        if (subscription != null)
-        {
-            subscription.UsedTokens = Math.Max(0, subscription.UsedTokens - reservation.EstimatedTokens);
-        }
+            if (reservation is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
 
-        reservation.Status = ReservationStatusEnum.Refunded;
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+            var subscriptionId = reservation.SubscriptionId;
+            var reservedTokens = reservation.EstimatedTokens;
+
+            // Claim the reservation atomically. Concurrent refunds serialize on this row, so
+            // exactly one of them observes Reserved and gets to credit the tokens back.
+            var claimedRows = await _dbContext.QuotaReservations
+                .IgnoreQueryFilters()
+                .Where(r => r.JobId == jobId && r.Status == ReservationStatusEnum.Reserved)
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(r => r.Status, ReservationStatusEnum.Refunded),
+                    cancellationToken);
+
+            if (claimedRows == 0)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
+
+            await _dbContext.Subscriptions
+                .IgnoreQueryFilters()
+                .Where(s => s.Id == subscriptionId)
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(
+                        s => s.UsedTokens,
+                        s => s.UsedTokens - reservedTokens < 0 ? 0 : s.UsedTokens - reservedTokens),
+                    cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return true;
+        });
     }
+
+    private static bool IsUniqueViolation(DbUpdateException exception) =>
+        exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 }
