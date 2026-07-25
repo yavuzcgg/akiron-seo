@@ -31,10 +31,11 @@ builder.Services.AddScoped<IAeoGeneratorService, AeoGeneratorService>();
 // Register MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(GetWebsitesQuery).Assembly));
 
-// Database Context (InMemory for dev reliability / fallback)
+// Database Context (SQLite for physical disk persistence across server restarts)
+var dbPath = Path.Combine(AppContext.BaseDirectory, "AkironSeo.db");
 builder.Services.AddDbContext<AkironDbContext>((sp, options) =>
 {
-    options.UseInMemoryDatabase("AkironDevDb");
+    options.UseSqlite($"Data Source={dbPath}");
 });
 
 builder.Services.AddScoped<IAkironDbContext>(sp => sp.GetRequiredService<AkironDbContext>());
@@ -59,12 +60,13 @@ var app = builder.Build();
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 app.UseSerilogRequestLogging();
 
-// Seed Database on Startup
+// Ensure Database Schema & Seed Data on Startup
 using (var scope = app.Services.CreateScope())
 {
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<AkironDbContext>();
+        await db.Database.EnsureCreatedAsync();
         await DbInitializer.SeedAsync(db);
     }
     catch (Exception ex)
