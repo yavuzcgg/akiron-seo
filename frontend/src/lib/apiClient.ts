@@ -80,6 +80,35 @@ export interface GeoAnalysisResult {
   analyzedAt: string;
 }
 
+export interface KeywordOpportunity {
+  keyword: string;
+  competitorRank: number;
+  yourRank: number;
+  estimatedSearchVolume: number;
+  difficulty: string;
+}
+
+export interface CompetitorGapResult {
+  websiteId: string;
+  yourDomain: string;
+  competitorDomain: string;
+  overlapScore: number;
+  missingKeywordOpportunities: KeywordOpportunity[];
+  analyzedAt: string;
+}
+
+export interface TenantQuotaStatus {
+  tenantId: string;
+  planName: string;
+  crawlQuotaLimit: number;
+  crawlQuotaUsed: number;
+  aiQuotaLimit: number;
+  aiQuotaUsed: number;
+  keywordQuotaLimit: number;
+  keywordQuotaUsed: number;
+  cycleResetsAt: string;
+}
+
 export const apiClient = {
   auth: {
     login: (body: { email: string; password: string }) =>
@@ -169,7 +198,25 @@ export const apiClient = {
         }
       ),
   },
+  competitors: {
+    list: (websiteId: string, tenantId: string) =>
+      apiRequest<CompetitorGapResult[]>(
+        `/websites/${websiteId}/competitors?tenantId=${tenantId}`
+      ),
+    analyze: (websiteId: string, tenantId: string, competitorDomain: string) =>
+      apiRequest<CompetitorGapResult>(
+        `/websites/${websiteId}/analyze-competitor?tenantId=${tenantId}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ competitorDomain }),
+        }
+      ),
+  },
   tenant: {
+    getQuota: (tenantId: string) =>
+      apiRequest<TenantQuotaStatus>(
+        `/tenant/quota?tenantId=${tenantId}`
+      ),
     saveApiKey: (body: { tenantId: string; provider: number; apiKey: string }) =>
       apiRequest<{ success: boolean; message: string }>(
         "/tenant/api-keys",

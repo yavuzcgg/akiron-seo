@@ -29,6 +29,8 @@ builder.Services.AddScoped<IRobotsTxtAuditorService, RobotsTxtAuditorService>();
 builder.Services.AddScoped<IAeoGeneratorService, AeoGeneratorService>();
 builder.Services.AddScoped<IKeywordRankTrackerService, KeywordRankTrackerService>();
 builder.Services.AddScoped<IGeoEngineService, GeoEngineService>();
+builder.Services.AddScoped<IQuotaLedgerService, QuotaLedgerService>();
+builder.Services.AddScoped<ICompetitorService, CompetitorService>();
 
 // Register MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(GetWebsitesQuery).Assembly));
@@ -93,5 +95,7 @@ app.MapTenantEndpoints();
 app.MapAiEndpoints();
 app.MapKeywordEndpoints();
 app.MapGeoEndpoints();
+app.MapCompetitorEndpoints();
+app.MapQuotaEndpoints();
 
 app.Run();

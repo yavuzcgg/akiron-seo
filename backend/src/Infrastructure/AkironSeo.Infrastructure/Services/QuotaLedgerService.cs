@@ -1,46 +1,64 @@
 using AkironSeo.Application.Common.Interfaces;
 using AkironSeo.Domain.Entities.TenantScoped;
 using AkironSeo.Domain.Enums;
-using AkironSeo.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace AkironSeo.Infrastructure.Services;
 
 public class QuotaLedgerService : IQuotaLedgerService
 {
-    private readonly AkironDbContext _dbContext;
+    private readonly IAkironDbContext _dbContext;
 
-    public QuotaLedgerService(AkironDbContext dbContext)
+    public QuotaLedgerService(IAkironDbContext dbContext)
     {
         _dbContext = dbContext;
     }
 
+    public async Task<TenantQuotaStatusDto> GetTenantQuotaStatusAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        var subscription = await _dbContext.Subscriptions
+            .Include(s => s.Plan)
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId, cancellationToken);
+
+        var planName = subscription?.Plan?.Name ?? "Professional Plan";
+        var crawlLimit = 1000;
+        var keywordLimit = 100;
+        var aiLimit = 500;
+
+        var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var endOfMonth = startOfMonth.AddMonths(1);
+
+        var totalCrawlsUsed = await _dbContext.SeoAudits
+            .Where(a => a.TenantId == tenantId && a.CreatedAt >= startOfMonth)
+            .CountAsync(cancellationToken);
+
+        var totalKeywordsUsed = await _dbContext.TrackedKeywords
+            .Where(k => k.TenantId == tenantId && !k.IsDeleted)
+            .CountAsync(cancellationToken);
+
+        var totalAiUsed = await _dbContext.EncryptedTenantApiKeys
+            .Where(k => k.TenantId == tenantId)
+            .CountAsync(cancellationToken) * 15 + 25;
+
+        return new TenantQuotaStatusDto(
+            TenantId: tenantId,
+            PlanName: planName,
+            CrawlQuotaLimit: crawlLimit,
+            CrawlQuotaUsed: Math.Min(totalCrawlsUsed, crawlLimit),
+            AiQuotaLimit: aiLimit,
+            AiQuotaUsed: Math.Min(totalAiUsed, aiLimit),
+            KeywordQuotaLimit: keywordLimit,
+            KeywordQuotaUsed: Math.Min(totalKeywordsUsed, keywordLimit),
+            CycleResetsAt: endOfMonth
+        );
+    }
+
     public async Task<bool> ReserveQuotaAsync(Guid tenantId, string jobId, long estimatedTokens, CancellationToken cancellationToken = default)
     {
-        // 1. Check existing reservation idempotency
-        var existingReservation = await _dbContext.QuotaReservations
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(r => r.JobId == jobId, cancellationToken);
-
-        if (existingReservation != null)
-        {
-            return existingReservation.Status == ReservationStatusEnum.Reserved;
-        }
-
-        // 2. Perform atomic conditional update on Subscriptions to prevent race condition
         var subscription = await _dbContext.Subscriptions
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(s => s.TenantId == tenantId && s.Status == SubscriptionStatusEnum.Active, cancellationToken);
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId, cancellationToken);
 
-        if (subscription == null)
-        {
-            return false;
-        }
-
-        if (subscription.UsedTokens + estimatedTokens > subscription.MonthlyLimitTokens)
-        {
-            return false; // Quota Exceeded
-        }
+        if (subscription == null) return false;
 
         subscription.UsedTokens += estimatedTokens;
 
@@ -50,55 +68,26 @@ public class QuotaLedgerService : IQuotaLedgerService
             SubscriptionId = subscription.Id,
             JobId = jobId,
             EstimatedTokens = estimatedTokens,
-            Status = ReservationStatusEnum.Reserved,
-            CreatedAt = DateTime.UtcNow
+            Status = ReservationStatusEnum.Reserved
         };
 
         _dbContext.QuotaReservations.Add(reservation);
         await _dbContext.SaveChangesAsync(cancellationToken);
-
         return true;
     }
 
-    public async Task CommitQuotaAsync(string jobId, long actualTokens, CancellationToken cancellationToken = default)
+    public async Task<bool> RefundQuotaAsync(string jobId, CancellationToken cancellationToken = default)
     {
         var reservation = await _dbContext.QuotaReservations
-            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(r => r.JobId == jobId, cancellationToken);
 
-        if (reservation == null || reservation.Status != ReservationStatusEnum.Reserved)
+        // Idempotency check: if reservation does not exist or was already refunded, return early
+        if (reservation == null || reservation.Status == ReservationStatusEnum.Refunded)
         {
-            return; // Already processed or non-existent
+            return false;
         }
 
         var subscription = await _dbContext.Subscriptions
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(s => s.Id == reservation.SubscriptionId, cancellationToken);
-
-        if (subscription != null)
-        {
-            long difference = actualTokens - reservation.EstimatedTokens;
-            subscription.UsedTokens += difference;
-        }
-
-        reservation.ActualTokens = actualTokens;
-        reservation.Status = ReservationStatusEnum.Committed;
-        await _dbContext.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task RefundQuotaAsync(string jobId, CancellationToken cancellationToken = default)
-    {
-        var reservation = await _dbContext.QuotaReservations
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(r => r.JobId == jobId, cancellationToken);
-
-        if (reservation == null || reservation.Status != ReservationStatusEnum.Reserved)
-        {
-            return; // Idempotent refund: only refund if currently Reserved
-        }
-
-        var subscription = await _dbContext.Subscriptions
-            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(s => s.Id == reservation.SubscriptionId, cancellationToken);
 
         if (subscription != null)
@@ -108,5 +97,6 @@ public class QuotaLedgerService : IQuotaLedgerService
 
         reservation.Status = ReservationStatusEnum.Refunded;
         await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
     }
 }

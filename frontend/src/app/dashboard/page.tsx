@@ -3,8 +3,10 @@
 import AeoGeneratorModal from "@/components/AeoGeneratorModal";
 import AiBotAuditorCard from "@/components/AiBotAuditorCard";
 import AuditDetailsModal, { AuditReportData } from "@/components/AuditDetailsModal";
+import CompetitorAnalysisCard from "@/components/CompetitorAnalysisCard";
 import GeoIntelligenceCard from "@/components/GeoIntelligenceCard";
 import KeywordTrackerCard from "@/components/KeywordTrackerCard";
+import TenantQuotaCard from "@/components/TenantQuotaCard";
 import { useApp } from "@/components/providers";
 import { apiClient } from "@/lib/apiClient";
 import Link from "next/link";
@@ -287,6 +289,13 @@ export default function DashboardPage() {
                         tenantId={tenantId}
                       />
 
+                      {/* Competitor Intelligence & SERP Gap Card */}
+                      <CompetitorAnalysisCard
+                        websiteId={site.id}
+                        websiteName={site.name}
+                        tenantId={tenantId}
+                      />
+
                       {/* Keyword Rank Tracker Card */}
                       <KeywordTrackerCard
                         websiteId={site.id}
@@ -306,8 +315,12 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Column 2: BYOK Key Settings */}
+          {/* Column 2: BYOK Key Settings & Quota Ledger */}
           <div className="space-y-6">
+            {/* Tenant Quota Meter Card */}
+            <TenantQuotaCard tenantId={tenantId} />
+
+            {/* BYOK API Key Settings */}
             <div className="p-6 rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] space-y-4">
               <h2 className="text-lg font-bold">🔐 BYOK (Bring Your Own Key)</h2>
               <p className="text-xs text-slate-400 leading-relaxed">
