@@ -2,6 +2,7 @@
 
 import AuditDetailsModal, { AuditReportData } from "@/components/AuditDetailsModal";
 import { useApp } from "@/components/providers";
+import { apiClient } from "@/lib/apiClient";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -40,11 +41,8 @@ export default function DashboardPage() {
 
   const fetchWebsites = async () => {
     try {
-      const res = await fetch(`http://localhost:5248/api/v1/websites?tenantId=${tenantId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setWebsites(data);
-      }
+      const data = await apiClient.websites.list(tenantId);
+      setWebsites(data);
     } catch {
       // API Offline fallback
     }
@@ -56,17 +54,14 @@ export default function DashboardPage() {
 
   const fetchLatestAudit = async (websiteId: string) => {
     try {
-      const res = await fetch(`http://localhost:5248/api/v1/websites/${websiteId}/latest-audit?tenantId=${tenantId}`);
-      if (res.ok) {
-        const report = await res.json();
-        if (report) {
-          setActiveAuditReport(report);
-        } else {
-          setError("No audit report available yet for this website. Click '⚡ Run Audit' to start!");
-        }
+      const report = await apiClient.websites.getLatestAudit(websiteId, tenantId);
+      if (report) {
+        setActiveAuditReport(report);
+      } else {
+        setError("No audit report available yet for this website. Click '⚡ Run Audit' to start!");
       }
-    } catch {
-      setError("Failed to fetch audit report.");
+    } catch (err: any) {
+      setError(err.message || "Failed to fetch audit report.");
     }
   };
 
@@ -77,22 +72,15 @@ export default function DashboardPage() {
     setError(null);
 
     try {
-      const res = await fetch(`http://localhost:5248/api/v1/websites?tenantId=${tenantId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newSiteName, domainUrl: newDomainUrl }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      const data = await apiClient.websites.create(tenantId, { name: newSiteName, domainUrl: newDomainUrl });
+      if (data.success) {
         setMessage(`Website '${newSiteName}' added successfully!`);
         setNewSiteName("");
         setNewDomainUrl("");
         fetchWebsites();
-      } else {
-        setError(data.detail || data.message || "Failed to add website.");
       }
-    } catch {
-      setError("Could not connect to API server.");
+    } catch (err: any) {
+      setError(err.message || "Failed to add website.");
     } finally {
       setLoading(false);
     }
@@ -102,18 +90,15 @@ export default function DashboardPage() {
     setMessage(null);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:5248/api/v1/websites/${websiteId}/verify?tenantId=${tenantId}&method=1`, {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (res.ok && data.verified) {
+      const data = await apiClient.websites.verify(websiteId, tenantId, 1);
+      if (data.verified) {
         setMessage("Website ownership verified successfully!");
         fetchWebsites();
       } else {
         setError("Verification pending. Please check DNS TXT or Meta tag.");
       }
-    } catch {
-      setError("Verification check failed.");
+    } catch (err: any) {
+      setError(err.message || "Verification check failed.");
     }
   };
 
@@ -121,18 +106,13 @@ export default function DashboardPage() {
     setMessage(null);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:5248/api/v1/websites/${websiteId}/crawl?tenantId=${tenantId}`, {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      const data = await apiClient.websites.crawl(websiteId, tenantId);
+      if (data.success) {
         setMessage(`Crawl completed! Audit Score: ${data.score}/100`);
         fetchLatestAudit(websiteId);
-      } else {
-        setError("Crawl failed.");
       }
-    } catch {
-      setError("Crawler service connection failed.");
+    } catch (err: any) {
+      setError(err.message || "Crawler service connection failed.");
     }
   };
 
@@ -141,25 +121,18 @@ export default function DashboardPage() {
     setMessage(null);
     setError(null);
     try {
-      const res = await fetch("http://localhost:5248/api/v1/tenant/api-keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tenantId: tenantId,
-          provider: parseInt(apiKeyProvider),
-          apiKey: apiKeyValue,
-        }),
+      const data = await apiClient.tenant.saveApiKey({
+        tenantId,
+        provider: parseInt(apiKeyProvider),
+        apiKey: apiKeyValue,
       });
 
-      const data = await res.json();
-      if (res.ok && data.success) {
+      if (data.success) {
         setMessage(data.message || "BYOK API key encrypted with AES-256-GCM and saved!");
         setApiKeyValue("");
-      } else {
-        setError(data.detail || data.message || "Failed to save API key.");
       }
-    } catch {
-      setError("API key service failed to connect.");
+    } catch (err: any) {
+      setError(err.message || "API key service failed to connect.");
     }
   };
 

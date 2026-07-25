@@ -1,6 +1,7 @@
 "use client";
 
 import { useApp } from "@/components/providers";
+import { apiClient } from "@/lib/apiClient";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -22,30 +23,22 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const res = await fetch("http://localhost:5248/api/v1/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const data = await apiClient.auth.login({ email, password });
 
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        // Save Auth Session
+      if (data.success) {
         if (data.accessToken) localStorage.setItem("akiron_token", data.accessToken);
         if (data.tenantId) localStorage.setItem("akiron_tenant_id", data.tenantId);
 
         setMessage("Welcome back! Redirecting to dashboard...");
 
-        // Auto Redirect to Dashboard
         setTimeout(() => {
           router.push("/dashboard");
         }, 800);
       } else {
         setError(data.message || "Invalid email or password.");
       }
-    } catch {
-      setError("Could not connect to server. Please try again.");
+    } catch (err: any) {
+      setError(err.message || "Could not connect to server. Please try again.");
     } finally {
       setLoading(false);
     }

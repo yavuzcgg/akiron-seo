@@ -1,6 +1,7 @@
 "use client";
 
 import { useApp } from "@/components/providers";
+import { apiClient } from "@/lib/apiClient";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -24,15 +25,9 @@ export default function RegisterPage() {
     setError(null);
 
     try {
-      const res = await fetch("http://localhost:5248/api/v1/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenantName, fullName, email, password }),
-      });
+      const data = await apiClient.auth.register({ tenantName, fullName, email, password });
 
-      const data = await res.json();
-
-      if (res.ok && data.success) {
+      if (data.success) {
         if (data.accessToken) localStorage.setItem("akiron_token", data.accessToken);
         if (data.tenantId) localStorage.setItem("akiron_tenant_id", data.tenantId);
 
@@ -43,8 +38,8 @@ export default function RegisterPage() {
       } else {
         setError(data.message || "Failed to register organization.");
       }
-    } catch {
-      setError("Could not connect to server. Please try again.");
+    } catch (err: any) {
+      setError(err.message || "Could not connect to server. Please try again.");
     } finally {
       setLoading(false);
     }
