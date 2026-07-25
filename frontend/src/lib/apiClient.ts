@@ -21,6 +21,33 @@ export async function apiRequest<T>(
   return data as T;
 }
 
+export interface AiSeoRecommendation {
+  optimizedTitle: string;
+  optimizedMetaDescription: string;
+  targetKeywords: string[];
+  actionableTips: string[];
+}
+
+export interface AiBotStatus {
+  botName: string;
+  userAgent: string;
+  status: "Allowed" | "Disallowed" | "NotSpecified";
+  description: string;
+}
+
+export interface RobotsTxtAudit {
+  domainUrl: string;
+  hasRobotsTxt: boolean;
+  botStatuses: AiBotStatus[];
+  rawRobotsTxt: string;
+}
+
+export interface AeoSchemas {
+  organizationJsonLd: string;
+  webSiteJsonLd: string;
+  llmsTxtContent: string;
+}
+
 export const apiClient = {
   auth: {
     login: (body: { email: string; password: string }) =>
@@ -57,6 +84,19 @@ export const apiClient = {
     getLatestAudit: (websiteId: string, tenantId: string) =>
       apiRequest<any>(
         `/websites/${websiteId}/latest-audit?tenantId=${tenantId}`
+      ),
+    getAiSuggestions: (websiteId: string, tenantId: string) =>
+      apiRequest<AiSeoRecommendation>(
+        `/websites/${websiteId}/ai-suggestions?tenantId=${tenantId}`,
+        { method: "POST" }
+      ),
+    getRobotsTxtAudit: (websiteId: string, tenantId: string) =>
+      apiRequest<RobotsTxtAudit>(
+        `/websites/${websiteId}/robots-txt-audit?tenantId=${tenantId}`
+      ),
+    getAeoSchemas: (websiteId: string, tenantId: string) =>
+      apiRequest<AeoSchemas>(
+        `/websites/${websiteId}/aeo-schemas?tenantId=${tenantId}`
       ),
   },
   tenant: {

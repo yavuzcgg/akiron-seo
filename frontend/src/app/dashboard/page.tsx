@@ -1,5 +1,7 @@
 "use client";
 
+import AeoGeneratorModal from "@/components/AeoGeneratorModal";
+import AiBotAuditorCard from "@/components/AiBotAuditorCard";
 import AuditDetailsModal, { AuditReportData } from "@/components/AuditDetailsModal";
 import { useApp } from "@/components/providers";
 import { apiClient } from "@/lib/apiClient";
@@ -20,7 +22,10 @@ export default function DashboardPage() {
   const [tenantId, setTenantId] = useState<string>("33333333-3333-3333-3333-333333333333");
   const [websites, setWebsites] = useState<Website[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // Modals state
   const [activeAuditReport, setActiveAuditReport] = useState<AuditReportData | null>(null);
+  const [aeoModalSite, setAeoModalSite] = useState<{ id: string; name: string } | null>(null);
 
   // Form states
   const [newSiteName, setNewSiteName] = useState("");
@@ -228,41 +233,57 @@ export default function DashboardPage() {
                   {websites.map((site) => (
                     <div
                       key={site.id}
-                      className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] flex flex-wrap items-center justify-between gap-3"
+                      className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] space-y-3"
                     >
-                      <div>
-                        <h4 className="font-bold text-base">{site.name}</h4>
-                        <p className="text-xs text-slate-400">{site.domainUrl}</p>
-                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h4 className="font-bold text-base">{site.name}</h4>
+                          <p className="text-xs text-slate-400">{site.domainUrl}</p>
+                        </div>
 
-                      <div className="flex items-center space-x-2">
-                        {site.isVerified ? (
-                          <span className="px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-semibold">
-                            ✓ Verified
-                          </span>
-                        ) : (
+                        <div className="flex items-center space-x-2">
+                          {site.isVerified ? (
+                            <span className="px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-semibold">
+                              ✓ Verified
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleVerifyWebsite(site.id)}
+                              className="px-3 py-1 rounded-lg border border-amber-500/30 text-amber-400 text-xs font-semibold hover:bg-amber-500/10"
+                            >
+                              Verify Ownership
+                            </button>
+                          )}
+
                           <button
-                            onClick={() => handleVerifyWebsite(site.id)}
-                            className="px-3 py-1 rounded-lg border border-amber-500/30 text-amber-400 text-xs font-semibold hover:bg-amber-500/10"
+                            onClick={() => fetchLatestAudit(site.id)}
+                            className="px-3 py-1 rounded-lg border border-blue-500/30 text-blue-400 text-xs font-semibold hover:bg-blue-500/10"
                           >
-                            Verify Ownership
+                            📊 Report
                           </button>
-                        )}
 
-                        <button
-                          onClick={() => fetchLatestAudit(site.id)}
-                          className="px-3 py-1 rounded-lg border border-blue-500/30 text-blue-400 text-xs font-semibold hover:bg-blue-500/10"
-                        >
-                          📊 Report
-                        </button>
+                          <button
+                            onClick={() => setAeoModalSite({ id: site.id, name: site.name })}
+                            className="px-3 py-1 rounded-lg border border-purple-500/30 text-purple-400 text-xs font-semibold hover:bg-purple-500/10"
+                          >
+                            🤖 AEO & Schemas
+                          </button>
 
-                        <button
-                          onClick={() => handleRunCrawl(site.id)}
-                          className="px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow"
-                        >
-                          ⚡ Run Audit
-                        </button>
+                          <button
+                            onClick={() => handleRunCrawl(site.id)}
+                            className="px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow"
+                          >
+                            ⚡ Run Audit
+                          </button>
+                        </div>
                       </div>
+
+                      {/* AI Bot Auditor Sub-card */}
+                      <AiBotAuditorCard
+                        websiteId={site.id}
+                        websiteName={site.name}
+                        tenantId={tenantId}
+                      />
                     </div>
                   ))}
                 </div>
@@ -319,7 +340,16 @@ export default function DashboardPage() {
       {/* Detailed SEO Audit Report Modal */}
       <AuditDetailsModal
         report={activeAuditReport}
+        tenantId={tenantId}
         onClose={() => setActiveAuditReport(null)}
+      />
+
+      {/* AEO & Schemas Modal */}
+      <AeoGeneratorModal
+        websiteId={aeoModalSite?.id || null}
+        websiteName={aeoModalSite?.name || ""}
+        tenantId={tenantId}
+        onClose={() => setAeoModalSite(null)}
       />
 
       {/* Footer */}

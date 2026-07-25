@@ -24,6 +24,9 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 builder.Services.AddScoped<IApiKeyEncryptionService, ApiKeyEncryptionService>();
 builder.Services.AddScoped<IWebCrawlerService, WebCrawlerService>();
+builder.Services.AddScoped<IAiOptimizationService, GeminiAiService>();
+builder.Services.AddScoped<IRobotsTxtAuditorService, RobotsTxtAuditorService>();
+builder.Services.AddScoped<IAeoGeneratorService, AeoGeneratorService>();
 
 // Register MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(GetWebsitesQuery).Assembly));
@@ -83,5 +86,6 @@ if (app.Environment.IsDevelopment())
 app.MapAuthEndpoints();
 app.MapWebsiteEndpoints();
 app.MapTenantEndpoints();
+app.MapAiEndpoints();
 
 app.Run();

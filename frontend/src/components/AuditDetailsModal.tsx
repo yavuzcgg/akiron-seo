@@ -1,5 +1,6 @@
 "use client";
 
+import { apiClient, AiSeoRecommendation } from "@/lib/apiClient";
 import { useState } from "react";
 
 export interface SeoIssue {
@@ -24,12 +25,14 @@ export interface AuditReportData {
 
 interface ModalProps {
   report: AuditReportData | null;
+  tenantId: string;
   onClose: () => void;
 }
 
-export default function AuditDetailsModal({ report, onClose }: ModalProps) {
-  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+export default function AuditDetailsModal({ report, tenantId, onClose }: ModalProps) {
+  const [aiAnalysis, setAiAnalysis] = useState<AiSeoRecommendation | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
+  const [errorAi, setErrorAi] = useState<string | null>(null);
 
   if (!report) return null;
 
@@ -41,16 +44,15 @@ export default function AuditDetailsModal({ report, onClose }: ModalProps) {
 
   const handleGenerateAiSuggestions = async () => {
     setLoadingAi(true);
-    // Simulate AI LLM Response using Gemini/BYOK Key
-    setTimeout(() => {
-      setAiAnalysis(
-        `🤖 **AI SEO Recommendations for ${report.domainUrl}**:\n\n` +
-        `1. **Title Tag Optimization**: Update title from "${report.title}" to "${report.websiteName} | Wholesale Moto Parts & Accessories".\n` +
-        `2. **Meta Description**: Add a targeted meta description: "Leading supplier of premium motorcycle parts and accessories. Fast B2B ordering and nationwide shipping."\n` +
-        `3. **Structured Data**: Add Schema.org Organization and Product JSON-LD schema.`
-      );
+    setErrorAi(null);
+    try {
+      const data = await apiClient.websites.getAiSuggestions(report.websiteId, tenantId);
+      setAiAnalysis(data);
+    } catch (err: any) {
+      setErrorAi(err.message || "Failed to generate AI recommendations.");
+    } finally {
       setLoadingAi(false);
-    }, 1200);
+    }
   };
 
   return (
@@ -148,27 +150,67 @@ export default function AuditDetailsModal({ report, onClose }: ModalProps) {
         </div>
 
         {/* AI Recommendations Action (BYOK Powered) */}
-        <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 space-y-3">
+        <div className="p-5 rounded-xl border border-blue-500/20 bg-blue-500/5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-sm font-bold text-blue-400 flex items-center gap-1.5">
-                🤖 AI Optimization Assistant
+                🤖 Live AI Optimization Engine (BYOK Powered)
               </h4>
-              <p className="text-xs text-slate-400">Generate custom high-converting title & meta descriptions using your BYOK Gemini key.</p>
+              <p className="text-xs text-slate-400">Generate high-converting Turkish Title & Meta Descriptions using your saved Gemini key.</p>
             </div>
             
             <button
               onClick={handleGenerateAiSuggestions}
               disabled={loadingAi}
-              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition disabled:opacity-50"
+              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition disabled:opacity-50 shadow-md"
             >
-              {loadingAi ? "Generating..." : "Generate AI Fixes"}
+              {loadingAi ? "Analyzing with Gemini..." : "⚡ Generate Live AI Fixes"}
             </button>
           </div>
 
+          {errorAi && (
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
+              {errorAi}
+            </div>
+          )}
+
           {aiAnalysis && (
-            <div className="p-3.5 rounded-lg bg-black/60 border border-blue-500/30 text-xs text-slate-200 font-mono whitespace-pre-wrap leading-relaxed">
-              {aiAnalysis}
+            <div className="p-4 rounded-xl bg-black/70 border border-blue-500/30 text-xs space-y-3 text-slate-200">
+              <div>
+                <span className="text-slate-400 font-semibold block mb-1">🎯 Önerilen Türkçe Başlık (Title):</span>
+                <div className="p-2.5 rounded-lg bg-blue-950/40 border border-blue-800/50 text-blue-300 font-bold text-sm">
+                  {aiAnalysis.optimizedTitle}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-slate-400 font-semibold block mb-1">📝 Önerilen Türkçe Meta Açıklama:</span>
+                <div className="p-2.5 rounded-lg bg-blue-950/40 border border-blue-800/50 text-slate-200 text-xs leading-relaxed">
+                  {aiAnalysis.optimizedMetaDescription}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-slate-400 font-semibold block mb-1">🔑 Hedef Anahtar Kelimeler:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {aiAnalysis.targetKeywords.map((kw, i) => (
+                    <span key={i} className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[11px] font-mono border border-blue-500/30">
+                      #{kw}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {aiAnalysis.actionableTips.length > 0 && (
+                <div>
+                  <span className="text-slate-400 font-semibold block mb-1">💡 Kritik İyileştirme Adımları:</span>
+                  <ul className="list-disc pl-4 space-y-1 text-slate-300">
+                    {aiAnalysis.actionableTips.map((tip, i) => (
+                      <li key={i}>{tip}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </div>
