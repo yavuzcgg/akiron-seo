@@ -63,6 +63,23 @@ export interface TrackedKeyword {
   nextScheduledRun: string | null;
 }
 
+export interface AiEngineCitation {
+  engineName: string;
+  isMentioned: boolean;
+  sentiment: string;
+  citationUrl: string;
+  sampleAiResponseSnippet: string;
+}
+
+export interface GeoAnalysisResult {
+  websiteId: string;
+  domainUrl: string;
+  shareOfVoiceScore: number;
+  engineCitations: AiEngineCitation[];
+  optimizationRecommendations: string[];
+  analyzedAt: string;
+}
+
 export const apiClient = {
   auth: {
     login: (body: { email: string; password: string }) =>
@@ -136,6 +153,20 @@ export const apiClient = {
       apiRequest<TrackedKeyword>(
         `/keywords/${keywordId}/check-rank?tenantId=${tenantId}`,
         { method: "POST" }
+      ),
+  },
+  geo: {
+    getAnalysis: (websiteId: string, tenantId: string) =>
+      apiRequest<GeoAnalysisResult>(
+        `/websites/${websiteId}/geo-analysis?tenantId=${tenantId}`
+      ),
+    analyzePrompt: (websiteId: string, tenantId: string, promptText: string) =>
+      apiRequest<GeoAnalysisResult>(
+        `/websites/${websiteId}/analyze-prompt?tenantId=${tenantId}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ promptText }),
+        }
       ),
   },
   tenant: {

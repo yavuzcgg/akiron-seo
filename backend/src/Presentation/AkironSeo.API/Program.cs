@@ -28,6 +28,7 @@ builder.Services.AddScoped<IAiOptimizationService, GeminiAiService>();
 builder.Services.AddScoped<IRobotsTxtAuditorService, RobotsTxtAuditorService>();
 builder.Services.AddScoped<IAeoGeneratorService, AeoGeneratorService>();
 builder.Services.AddScoped<IKeywordRankTrackerService, KeywordRankTrackerService>();
+builder.Services.AddScoped<IGeoEngineService, GeoEngineService>();
 
 // Register MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(GetWebsitesQuery).Assembly));
@@ -91,5 +92,6 @@ app.MapWebsiteEndpoints();
 app.MapTenantEndpoints();
 app.MapAiEndpoints();
 app.MapKeywordEndpoints();
+app.MapGeoEndpoints();
 
 app.Run();

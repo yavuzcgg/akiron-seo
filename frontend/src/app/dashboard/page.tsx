@@ -3,6 +3,7 @@
 import AeoGeneratorModal from "@/components/AeoGeneratorModal";
 import AiBotAuditorCard from "@/components/AiBotAuditorCard";
 import AuditDetailsModal, { AuditReportData } from "@/components/AuditDetailsModal";
+import GeoIntelligenceCard from "@/components/GeoIntelligenceCard";
 import KeywordTrackerCard from "@/components/KeywordTrackerCard";
 import { useApp } from "@/components/providers";
 import { apiClient } from "@/lib/apiClient";
@@ -278,6 +279,13 @@ export default function DashboardPage() {
                           </button>
                         </div>
                       </div>
+
+                      {/* GEO Intelligence Engine Card */}
+                      <GeoIntelligenceCard
+                        websiteId={site.id}
+                        websiteName={site.name}
+                        tenantId={tenantId}
+                      />
 
                       {/* Keyword Rank Tracker Card */}
                       <KeywordTrackerCard
