@@ -48,6 +48,21 @@ export interface AeoSchemas {
   llmsTxtContent: string;
 }
 
+export interface TrackedKeyword {
+  id: string;
+  websiteId: string;
+  keywordText: string;
+  targetCountry: string;
+  targetLanguage: string;
+  currentPosition: number | null;
+  previousPosition: number | null;
+  positionChange: number;
+  targetUrl: string | null;
+  isActive: boolean;
+  lastCheckedAt: string | null;
+  nextScheduledRun: string | null;
+}
+
 export const apiClient = {
   auth: {
     login: (body: { email: string; password: string }) =>
@@ -97,6 +112,30 @@ export const apiClient = {
     getAeoSchemas: (websiteId: string, tenantId: string) =>
       apiRequest<AeoSchemas>(
         `/websites/${websiteId}/aeo-schemas?tenantId=${tenantId}`
+      ),
+  },
+  keywords: {
+    list: (websiteId: string, tenantId: string) =>
+      apiRequest<TrackedKeyword[]>(
+        `/websites/${websiteId}/keywords?tenantId=${tenantId}`
+      ),
+    add: (tenantId: string, body: { websiteId: string; keywordText: string; language?: string; cronExpression?: string }) =>
+      apiRequest<{ success: boolean; keywordId: string }>(
+        `/keywords?tenantId=${tenantId}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            websiteId: body.websiteId,
+            keyword: body.keywordText,
+            language: body.language || "tr",
+            cronExpression: body.cronExpression || "0 0 * * *"
+          }),
+        }
+      ),
+    checkRank: (keywordId: string, tenantId: string) =>
+      apiRequest<TrackedKeyword>(
+        `/keywords/${keywordId}/check-rank?tenantId=${tenantId}`,
+        { method: "POST" }
       ),
   },
   tenant: {

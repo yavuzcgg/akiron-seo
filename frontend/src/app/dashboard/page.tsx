@@ -3,6 +3,7 @@
 import AeoGeneratorModal from "@/components/AeoGeneratorModal";
 import AiBotAuditorCard from "@/components/AiBotAuditorCard";
 import AuditDetailsModal, { AuditReportData } from "@/components/AuditDetailsModal";
+import KeywordTrackerCard from "@/components/KeywordTrackerCard";
 import { useApp } from "@/components/providers";
 import { apiClient } from "@/lib/apiClient";
 import Link from "next/link";
@@ -229,11 +230,11 @@ export default function DashboardPage() {
               {websites.length === 0 ? (
                 <p className="text-sm text-slate-400">No websites added yet. Add a website to start crawling!</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {websites.map((site) => (
                     <div
                       key={site.id}
-                      className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] space-y-3"
+                      className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] space-y-4"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
@@ -277,6 +278,12 @@ export default function DashboardPage() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Keyword Rank Tracker Card */}
+                      <KeywordTrackerCard
+                        websiteId={site.id}
+                        tenantId={tenantId}
+                      />
 
                       {/* AI Bot Auditor Sub-card */}
                       <AiBotAuditorCard

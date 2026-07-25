@@ -7,10 +7,18 @@ public class TrackedKeyword : BaseEntity, IMultiTenant, ISoftDelete
     public Guid TenantId { get; set; }
     public Guid WebsiteId { get; set; }
     public string Keyword { get; set; } = string.Empty;
-    public string Language { get; set; } = "en";
-    public string TargetEnginesJson { get; set; } = "[\"PerplexitySonar\", \"OpenAiSearch\"]";
+    public string Language { get; set; } = "tr";
+    public string TargetCountry { get; set; } = "TR";
+    public string TargetEnginesJson { get; set; } = "[\"Google\", \"Perplexity\", \"ChatGPT\"]";
     public string CronExpression { get; set; } = "0 0 * * *"; // Default daily at midnight
+    
+    // Rank positions & tracking
+    public int? CurrentPosition { get; set; }
+    public int? PreviousPosition { get; set; }
+    public string? TargetUrl { get; set; }
+    public DateTime? LastCheckedAt { get; set; }
     public DateTime? NextScheduledRun { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     // Soft Delete
