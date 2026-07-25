@@ -44,6 +44,14 @@ public class AkironDbContext : DbContext, IAkironDbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ApiUsageLog> ApiUsageLogs => Set<ApiUsageLog>();
 
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        base.ConfigureConventions(configurationBuilder);
+
+        // Applies to DateTime and DateTime? alike; EF Core derives the nullable converter automatically.
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -51,7 +59,8 @@ public class AkironDbContext : DbContext, IAkironDbContext
         // Configure Indexes
         modelBuilder.Entity<Website>()
             .HasIndex(w => new { w.TenantId, w.DomainUrl })
-            .HasFilter("\"IsDeleted\" = false");
+            .HasFilter("\"IsDeleted\" = false")
+            .IsUnique();
 
         modelBuilder.Entity<TrackedKeyword>()
             .HasIndex(tk => new { tk.IsActive, tk.NextScheduledRun });
@@ -59,6 +68,23 @@ public class AkironDbContext : DbContext, IAkironDbContext
         modelBuilder.Entity<QuotaReservation>()
             .HasIndex(qr => qr.JobId)
             .IsUnique();
+
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Email)
+            .IsUnique();
+
+        modelBuilder.Entity<Tenant>()
+            .HasIndex(t => t.Slug)
+            .IsUnique();
+
+        // Configure Decimal Precision (PostgreSQL numeric is unbounded without an explicit precision)
+        modelBuilder.Entity<Plan>()
+            .Property(p => p.PriceMonthly)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<ApiUsageLog>()
+            .Property(a => a.EstimatedCostUsd)
+            .HasPrecision(18, 6);
 
         // Apply Automatic Global Query Filters for IMultiTenant and ISoftDelete via generic helper
         var setQueryFilterMethod = typeof(AkironDbContext)

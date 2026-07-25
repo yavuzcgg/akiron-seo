@@ -35,11 +35,13 @@ builder.Services.AddScoped<ICompetitorService, CompetitorService>();
 // Register MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(GetWebsitesQuery).Assembly));
 
-// Database Context (SQLite for physical disk persistence across server restarts)
-var dbPath = Path.Combine(AppContext.BaseDirectory, "AkironSeo.db");
-builder.Services.AddDbContext<AkironDbContext>((sp, options) =>
+// Database Context (PostgreSQL)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
+
+builder.Services.AddDbContext<AkironDbContext>(options =>
 {
-    options.UseSqlite($"Data Source={dbPath}");
+    options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure());
 });
 
 builder.Services.AddScoped<IAkironDbContext>(sp => sp.GetRequiredService<AkironDbContext>());
@@ -64,19 +66,13 @@ var app = builder.Build();
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 app.UseSerilogRequestLogging();
 
-// Ensure Database Schema & Seed Data on Startup
+// Apply Pending Migrations & Seed Data on Startup.
+// Failures are intentionally fatal: booting with an incomplete schema would fail every request.
 using (var scope = app.Services.CreateScope())
 {
-    try
-    {
-        var db = scope.ServiceProvider.GetRequiredService<AkironDbContext>();
-        await db.Database.EnsureCreatedAsync();
-        await DbInitializer.SeedAsync(db);
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogError(ex, "An error occurred while seeding the database.");
-    }
+    var db = scope.ServiceProvider.GetRequiredService<AkironDbContext>();
+    await db.Database.MigrateAsync();
+    await DbInitializer.SeedAsync(db);
 }
 
 app.UseCors("FrontendCors");
