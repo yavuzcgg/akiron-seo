@@ -18,5 +18,33 @@ services:
       retries: 10
       start_period: 10s
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: akironseo_backend
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=akironseo_db;Username=akiron_user;Password=akiron_password"
+    ports:
+      - "5248:5248"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: akironseo_frontend
+    restart: always
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost:5248/api/v1"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
 volumes:
   postgres_data:

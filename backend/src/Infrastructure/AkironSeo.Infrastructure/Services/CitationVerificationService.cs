@@ -9,11 +9,16 @@ namespace AkironSeo.Infrastructure.Services;
 public class CitationVerificationService : ICitationVerificationService
 {
     private readonly IAkironDbContext _dbContext;
+    private readonly INotificationDispatcherService _dispatcher;
     private readonly HttpClient _httpClient;
 
-    public CitationVerificationService(IAkironDbContext dbContext, HttpClient httpClient)
+    public CitationVerificationService(
+        IAkironDbContext dbContext,
+        INotificationDispatcherService dispatcher,
+        HttpClient httpClient)
     {
         _dbContext = dbContext;
+        _dispatcher = dispatcher;
         _httpClient = httpClient;
     }
 
@@ -145,6 +150,19 @@ public class CitationVerificationService : ICitationVerificationService
 
         _dbContext.Notifications.Add(notification);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var website = await _dbContext.Websites
+            .FirstOrDefaultAsync(w => w.Id == websiteId, cancellationToken);
+
+        await _dispatcher.DispatchNotificationAlertAsync(new NotificationPayloadDto(
+            EventType: "gold_opportunity_detected",
+            WebsiteId: websiteId,
+            WebsiteName: website?.Name ?? "Website",
+            DomainUrl: website?.DomainUrl ?? "",
+            Title: notification.Title,
+            Message: notification.Message,
+            Timestamp: notification.CreatedAt
+        ), website?.WebhookUrl, cancellationToken);
     }
 
     private static string NormalizeUrl(string url)

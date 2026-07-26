@@ -8,6 +8,7 @@ import { AuditReportData } from "@/lib/apiClient";
 import CompetitorAnalysisCard from "@/components/CompetitorAnalysisCard";
 import GeoIntelligenceCard from "@/components/GeoIntelligenceCard";
 import GoldOpportunityPanel from "@/components/GoldOpportunityPanel";
+import GscAnalyticsCard from "@/components/GscAnalyticsCard";
 import KeywordTrackerCard from "@/components/KeywordTrackerCard";
 import TenantQuotaCard from "@/components/TenantQuotaCard";
 import { useApp } from "@/components/providers";
@@ -314,6 +315,12 @@ export default function DashboardPage() {
                         websiteId={site.id}
                         websiteName={site.name}
                         onOpenWriter={(kw, path) => setAiWriterSite({ id: site.id, name: site.name, keyword: kw, path: path })}
+                      />
+
+                      {/* Google Search Console Analytics Card */}
+                      <GscAnalyticsCard
+                        websiteId={site.id}
+                        websiteName={site.name}
                       />
 
                       {/* GEO Intelligence Engine Card */}

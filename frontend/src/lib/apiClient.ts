@@ -200,6 +200,17 @@ export interface AdminUsageLogDto {
   timestamp: string;
 }
 
+export interface GscMetrics {
+  websiteId: string;
+  domainUrl: string;
+  totalClicks: number;
+  totalImpressions: number;
+  averageCtrPercentage: number;
+  averagePosition: number;
+  topKeywordsCount: number;
+  analyzedAt: string;
+}
+
 export const apiClient = {
   auth: {
     login: (body: { email: string; password: string }) =>
@@ -357,6 +368,12 @@ export const apiClient = {
   reports: {
     getExecutiveReportUrl: (websiteId: string) =>
       `${API_BASE_URL}/websites/${websiteId}/export-report`,
+  },
+  gsc: {
+    getAnalytics: (websiteId: string) =>
+      apiRequest<GscMetrics>(
+        `/websites/${websiteId}/gsc-analytics`
+      ),
   },
   tenant: {
     getQuota: () =>

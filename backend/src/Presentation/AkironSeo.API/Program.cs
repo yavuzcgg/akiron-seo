@@ -37,6 +37,8 @@ builder.Services.AddScoped<ICompetitorService, CompetitorService>();
 builder.Services.AddScoped<ICitationVerificationService, CitationVerificationService>();
 builder.Services.AddScoped<IAiContentWriterService, AiContentWriterService>();
 builder.Services.AddScoped<IReportExportService, ReportExportService>();
+builder.Services.AddScoped<INotificationDispatcherService, NotificationDispatcherService>();
+builder.Services.AddScoped<ISearchConsoleService, SearchConsoleService>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
 // Register MediatR
@@ -136,5 +138,6 @@ app.MapNotificationEndpoints();
 app.MapContentEndpoints();
 app.MapAdminEndpoints();
 app.MapReportEndpoints();
+app.MapGscEndpoints();
 
 app.Run();

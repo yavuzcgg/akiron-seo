@@ -13,6 +13,7 @@ public class Website : BaseEntity, IMultiTenant, ISoftDelete
     public bool IsVerified { get; set; } = false;
     public DateTime? VerifiedAt { get; set; }
     public string BrandAliasesJson { get; set; } = "[]";
+    public string? WebhookUrl { get; set; }
 
     // Soft Delete
     public bool IsDeleted { get; set; } = false;
