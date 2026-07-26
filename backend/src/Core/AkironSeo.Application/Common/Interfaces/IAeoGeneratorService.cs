@@ -3,7 +3,9 @@ namespace AkironSeo.Application.Common.Interfaces;
 public record AeoSchemasDto(
     string OrganizationJsonLd,
     string WebSiteJsonLd,
-    string LlmsTxtContent
+    string FaqJsonLd,
+    string LlmsTxtContent,
+    string LlmsFullTxtContent
 );
 
 public interface IAeoGeneratorService

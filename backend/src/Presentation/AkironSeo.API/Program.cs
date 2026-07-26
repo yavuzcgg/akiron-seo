@@ -34,6 +34,8 @@ builder.Services.AddScoped<IKeywordRankTrackerService, KeywordRankTrackerService
 builder.Services.AddScoped<IGeoEngineService, GeoEngineService>();
 builder.Services.AddScoped<IQuotaLedgerService, QuotaLedgerService>();
 builder.Services.AddScoped<ICompetitorService, CompetitorService>();
+builder.Services.AddScoped<ICitationVerificationService, CitationVerificationService>();
+builder.Services.AddScoped<IAiContentWriterService, AiContentWriterService>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
 // Register MediatR
@@ -129,5 +131,7 @@ app.MapKeywordEndpoints();
 app.MapGeoEndpoints();
 app.MapCompetitorEndpoints();
 app.MapQuotaEndpoints();
+app.MapNotificationEndpoints();
+app.MapContentEndpoints();
 
 app.Run();

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AkironSeo.Application.Geo.Queries;
 
-public record GetGeoAnalysisQuery(Guid WebsiteId) : IRequest<GeoAnalysisResultDto?>;
+public record GetGeoAnalysisQuery(Guid WebsiteId, bool ForceRefresh = false) : IRequest<GeoAnalysisResultDto?>;
 
 public class GetGeoAnalysisQueryHandler : IRequestHandler<GetGeoAnalysisQuery, GeoAnalysisResultDto?>
 {
@@ -31,6 +31,7 @@ public class GetGeoAnalysisQueryHandler : IRequestHandler<GetGeoAnalysisQuery, G
 
         if (website == null) return null;
 
-        return await _geoEngineService.AnalyzeBrandGeoVisibilityAsync(request.WebsiteId, tenantId, cancellationToken);
+        return await _geoEngineService.AnalyzeBrandGeoVisibilityAsync(
+            request.WebsiteId, tenantId, request.ForceRefresh, cancellationToken);
     }
 }

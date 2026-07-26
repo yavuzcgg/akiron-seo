@@ -2,9 +2,12 @@
 
 import AeoGeneratorModal from "@/components/AeoGeneratorModal";
 import AiBotAuditorCard from "@/components/AiBotAuditorCard";
-import AuditDetailsModal, { AuditReportData } from "@/components/AuditDetailsModal";
+import AiContentWriterModal from "@/components/AiContentWriterModal";
+import AuditDetailsModal from "@/components/AuditDetailsModal";
+import { AuditReportData } from "@/lib/apiClient";
 import CompetitorAnalysisCard from "@/components/CompetitorAnalysisCard";
 import GeoIntelligenceCard from "@/components/GeoIntelligenceCard";
+import GoldOpportunityPanel from "@/components/GoldOpportunityPanel";
 import KeywordTrackerCard from "@/components/KeywordTrackerCard";
 import TenantQuotaCard from "@/components/TenantQuotaCard";
 import { useApp } from "@/components/providers";
@@ -29,6 +32,7 @@ export default function DashboardPage() {
   // Modals state
   const [activeAuditReport, setActiveAuditReport] = useState<AuditReportData | null>(null);
   const [aeoModalSite, setAeoModalSite] = useState<{ id: string; name: string } | null>(null);
+  const [aiWriterSite, setAiWriterSite] = useState<{ id: string; name: string; keyword?: string; path?: string } | null>(null);
 
   // Form states
   const [newSiteName, setNewSiteName] = useState("");
@@ -264,6 +268,13 @@ export default function DashboardPage() {
                           </button>
 
                           <button
+                            onClick={() => setAiWriterSite({ id: site.id, name: site.name })}
+                            className="px-3 py-1 rounded-lg border border-emerald-500/30 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/10"
+                          >
+                            ✍️ AI Writer
+                          </button>
+
+                          <button
                             onClick={() => handleRunCrawl(site.id)}
                             className="px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow"
                           >
@@ -271,6 +282,13 @@ export default function DashboardPage() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Gold GEO Opportunity Alerts Panel */}
+                      <GoldOpportunityPanel
+                        websiteId={site.id}
+                        websiteName={site.name}
+                        onOpenWriter={(kw, path) => setAiWriterSite({ id: site.id, name: site.name, keyword: kw, path: path })}
+                      />
 
                       {/* GEO Intelligence Engine Card */}
                       <GeoIntelligenceCard
@@ -362,6 +380,15 @@ export default function DashboardPage() {
         websiteId={aeoModalSite?.id || null}
         websiteName={aeoModalSite?.name || ""}
         onClose={() => setAeoModalSite(null)}
+      />
+
+      {/* AI Content Writer & Gold Opportunity Fixer Modal */}
+      <AiContentWriterModal
+        websiteId={aiWriterSite?.id || null}
+        websiteName={aiWriterSite?.name || ""}
+        initialKeyword={aiWriterSite?.keyword || ""}
+        initialPath={aiWriterSite?.path || ""}
+        onClose={() => setAiWriterSite(null)}
       />
 
       {/* Footer */}

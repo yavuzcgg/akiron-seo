@@ -48,10 +48,37 @@ export interface RobotsTxtAudit {
   rawRobotsTxt: string;
 }
 
+export interface SeoIssue {
+  code: string;
+  severity: "Critical" | "Warning" | "Info";
+  description: string;
+  recommendation: string;
+}
+
+export interface AuditReportData {
+  auditId: string;
+  websiteId: string;
+  websiteName: string;
+  domainUrl: string;
+  overallScore: number;
+  statusCode: number;
+  title: string;
+  metaDescription: string;
+  canonicalUrl: string;
+  h1Tags: string[];
+  openGraphTags: Record<string, string>;
+  robotsMeta: string;
+  issues: SeoIssue[];
+  robotsTxtAudit: RobotsTxtAudit | null;
+  crawledAt: string;
+}
+
 export interface AeoSchemas {
   organizationJsonLd: string;
   webSiteJsonLd: string;
+  faqJsonLd: string;
   llmsTxtContent: string;
+  llmsFullTxtContent: string;
 }
 
 export interface TrackedKeyword {
@@ -75,15 +102,51 @@ export interface AiEngineCitation {
   sentiment: string;
   citationUrl: string;
   sampleAiResponseSnippet: string;
+  mentionRatePercentage?: number;
+  citationStatus?: string;
+  isGoldOpportunity?: boolean;
 }
 
 export interface GeoAnalysisResult {
   websiteId: string;
   domainUrl: string;
   shareOfVoiceScore: number;
+  overallMentionRatePercentage?: number;
   engineCitations: AiEngineCitation[];
   optimizationRecommendations: string[];
   analyzedAt: string;
+  isCached?: boolean;
+}
+
+export interface GoldOpportunity {
+  notificationId: string;
+  websiteId: string;
+  websiteName: string;
+  domainUrl: string;
+  title: string;
+  message: string;
+  detectedAt: string;
+  isRead: boolean;
+}
+
+export interface NotificationItem {
+  id: string;
+  type: number;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface AiContentPlan {
+  id: string;
+  websiteId: string;
+  targetKeyword: string;
+  missingPath?: string | null;
+  generatedMarkdownContent: string;
+  status: number;
+  tokensSpent: number;
+  createdAt: string;
 }
 
 export interface KeywordOpportunity {
@@ -149,7 +212,7 @@ export const apiClient = {
         { method: "POST" }
       ),
     getLatestAudit: (websiteId: string) =>
-      apiRequest<any>(
+      apiRequest<AuditReportData>(
         `/websites/${websiteId}/latest-audit`
       ),
     getAiSuggestions: (websiteId: string) =>
@@ -164,6 +227,10 @@ export const apiClient = {
     getAeoSchemas: (websiteId: string) =>
       apiRequest<AeoSchemas>(
         `/websites/${websiteId}/aeo-schemas`
+      ),
+    getGoldOpportunities: (websiteId: string) =>
+      apiRequest<GoldOpportunity[]>(
+        `/websites/${websiteId}/gold-opportunities`
       ),
   },
   keywords: {
@@ -191,9 +258,9 @@ export const apiClient = {
       ),
   },
   geo: {
-    getAnalysis: (websiteId: string) =>
+    getAnalysis: (websiteId: string, forceRefresh = false) =>
       apiRequest<GeoAnalysisResult>(
-        `/websites/${websiteId}/geo-analysis`
+        `/websites/${websiteId}/geo-analysis${forceRefresh ? "?forceRefresh=true" : ""}`
       ),
     analyzePrompt: (websiteId: string, promptText: string) =>
       apiRequest<GeoAnalysisResult>(
@@ -202,6 +269,28 @@ export const apiClient = {
           method: "POST",
           body: JSON.stringify({ promptText }),
         }
+      ),
+  },
+  notifications: {
+    list: () =>
+      apiRequest<NotificationItem[]>(
+        "/notifications"
+      ),
+    markRead: (id: string) =>
+      apiRequest<{ success: boolean }>(
+        `/notifications/${id}/read`,
+        { method: "POST" }
+      ),
+  },
+  content: {
+    generate: (websiteId: string, body: { targetKeyword: string; missingPath?: string | null }) =>
+      apiRequest<AiContentPlan>(
+        `/websites/${websiteId}/ai-content/generate`,
+        { method: "POST", body: JSON.stringify(body) }
+      ),
+    list: (websiteId: string) =>
+      apiRequest<AiContentPlan[]>(
+        `/websites/${websiteId}/ai-content`
       ),
   },
   competitors: {

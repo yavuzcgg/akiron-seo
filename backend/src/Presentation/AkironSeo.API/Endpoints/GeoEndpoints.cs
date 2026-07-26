@@ -12,16 +12,22 @@ public static class GeoEndpoints
     {
         var group = app.MapGroup("/api/v1/websites").RequireAuthorization();
 
-        group.MapGet("/{websiteId}/geo-analysis", async (Guid websiteId, IMediator mediator) =>
+        group.MapGet("/{websiteId}/geo-analysis", async (Guid websiteId, bool? forceRefresh, IMediator mediator) =>
         {
-            var result = await mediator.Send(new GetGeoAnalysisQuery(websiteId));
+            var result = await mediator.Send(new GetGeoAnalysisQuery(websiteId, forceRefresh ?? false));
             return Results.Ok(result);
         });
 
         group.MapPost("/{websiteId}/analyze-prompt", async (Guid websiteId, AnalyzePromptRequestDto request, ITenantContext tenantContext, IGeoEngineService geoService) =>
         {
-            var result = await geoService.EvaluateCustomPromptAsync(websiteId, tenantContext.CurrentTenantId, request.PromptText);
+            var result = await geoService.EvaluateCustomPromptAsync(websiteId, tenantContext.CurrentTenantId, request.PromptText, forceRefresh: true);
             return Results.Ok(result);
+        });
+
+        group.MapGet("/{websiteId}/gold-opportunities", async (Guid websiteId, IMediator mediator) =>
+        {
+            var opportunities = await mediator.Send(new GetGoldOpportunitiesQuery(websiteId));
+            return Results.Ok(opportunities);
         });
     }
 }
