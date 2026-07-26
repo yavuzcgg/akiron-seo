@@ -178,6 +178,28 @@ export interface TenantQuotaStatus {
   cycleResetsAt: string;
 }
 
+export interface AdminTenantDto {
+  tenantId: string;
+  tenantName: string;
+  slug: string;
+  planName: string;
+  monthlyLimitTokens: number;
+  usedTokens: number;
+  registeredWebsitesCount: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface AdminUsageLogDto {
+  logId: string;
+  tenantId: string;
+  tenantName: string;
+  serviceName: string;
+  tokensUsed: number;
+  estimatedCostUsd: number;
+  timestamp: string;
+}
+
 export const apiClient = {
   auth: {
     login: (body: { email: string; password: string }) =>
@@ -305,6 +327,31 @@ export const apiClient = {
           method: "POST",
           body: JSON.stringify({ competitorDomain }),
         }
+      ),
+  },
+  admin: {
+    getTenants: () =>
+      apiRequest<AdminTenantDto[]>(
+        "/admin/tenants"
+      ),
+    updateQuota: (tenantId: string, body: { newMonthlyLimitTokens: number; resetUsedTokens?: boolean }) =>
+      apiRequest<{ success: boolean }>(
+        `/admin/tenants/${tenantId}/quota`,
+        { method: "POST", body: JSON.stringify(body) }
+      ),
+    toggleStatus: (tenantId: string) =>
+      apiRequest<{ success: boolean; isActive: boolean }>(
+        `/admin/tenants/${tenantId}/toggle-status`,
+        { method: "POST" }
+      ),
+    getUsageLogs: () =>
+      apiRequest<AdminUsageLogDto[]>(
+        "/admin/usage-logs"
+      ),
+    pruneLogs: (olderThanDays = 30) =>
+      apiRequest<{ success: boolean; prunedRecordsCount: number }>(
+        "/admin/prune-logs",
+        { method: "POST", body: JSON.stringify({ olderThanDays }) }
       ),
   },
   tenant: {

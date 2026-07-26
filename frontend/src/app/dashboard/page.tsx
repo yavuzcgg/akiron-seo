@@ -163,6 +163,12 @@ export default function DashboardPage() {
           >
             {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
           </button>
+          <Link
+            href="/admin"
+            className="px-3 py-1.5 rounded-lg border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 transition"
+          >
+            🛡️ Admin
+          </Link>
           <Link href="/" className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-slate-400 hover:text-white">
             Logout
           </Link>

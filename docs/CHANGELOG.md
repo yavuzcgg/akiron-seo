@@ -4,6 +4,19 @@ All progress, phase updates, and development milestones for **Akiron SEO** are r
 
 ---
 
+## [SuperAdmin Dashboard & B2B Tenant Management - Completed] - 2026-07-26
+
+### 🎯 Objective
+Implement SuperAdmin Dashboard & B2B Tenant Management (`/admin` route): Tenant listing, manual token quota adjustments, B2B account lifecycle control, system-wide API token consumption audit logs, and log pruning maintenance.
+
+### 📋 Completed Milestones
+- [x] **A.1: Admin CQRS Queries & Commands**: Created `GetAdminTenantsQuery` (bypasses tenant query filters to retrieve system-wide tenant information), `UpdateTenantQuotaCommand` (manual token limit adjustment & reset), `ToggleTenantStatusCommand` (soft-delete toggle), `GetApiUsageLogsQuery` (token audit log aggregation), and `PruneSystemLogsCommand` (30-day log cleanup).
+- [x] **A.2: Admin Modular API Endpoints**: Created `AdminEndpoints` (`GET /api/v1/admin/tenants`, `POST /api/v1/admin/tenants/{id}/quota`, `POST /api/v1/admin/tenants/{id}/toggle-status`, `GET /api/v1/admin/usage-logs`, `POST /api/v1/admin/prune-logs`).
+- [x] **A.3: Frontend /admin Dashboard Route**: Built `src/app/admin/page.tsx` featuring KPI Cards (Total Tenants, Total Sites, Total Tokens Spent, Estimated Cost USD), B2B Tenant Management Table, Quota Adjust Modal, API Usage Logs Table, and Prune Logs Trigger.
+- [x] **A.4: Dashboard Navigation**: Added `"🛡️ Admin"` shortcut link in tenant dashboard header.
+
+---
+
 ## [Phase 4 - GEO AI Content Writer & Reporting Engine - Completed] - 2026-07-26
 
 ### 🎯 Objective

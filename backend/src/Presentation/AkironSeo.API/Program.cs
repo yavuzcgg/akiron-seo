@@ -133,5 +133,6 @@ app.MapCompetitorEndpoints();
 app.MapQuotaEndpoints();
 app.MapNotificationEndpoints();
 app.MapContentEndpoints();
+app.MapAdminEndpoints();
 
 app.Run();
