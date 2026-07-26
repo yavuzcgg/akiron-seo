@@ -11,7 +11,8 @@ public class ApiKeyEncryptionService : IApiKeyEncryptionService
 
     public ApiKeyEncryptionService(IConfiguration configuration)
     {
-        var secret = configuration["Security:MasterEncryptionKey"] ?? "AkironSeoMasterEncryptionKey2026!SecureKey32Bytes";
+        var secret = configuration["Security:MasterEncryptionKey"]
+            ?? throw new InvalidOperationException("Security:MasterEncryptionKey is not configured.");
         using var sha256 = SHA256.Create();
         _masterKey = sha256.ComputeHash(Encoding.UTF8.GetBytes(secret));
     }
