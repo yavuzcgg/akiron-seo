@@ -1,3 +1,4 @@
+using System.Text;
 using AkironSeo.API.Endpoints;
 using AkironSeo.API.Middleware;
 using AkironSeo.Application.Common.Interfaces;
@@ -5,7 +6,9 @@ using AkironSeo.Application.Websites.Queries;
 using AkironSeo.Infrastructure.Persistence;
 using AkironSeo.Infrastructure.Security;
 using AkironSeo.Infrastructure.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,6 +34,7 @@ builder.Services.AddScoped<IKeywordRankTrackerService, KeywordRankTrackerService
 builder.Services.AddScoped<IGeoEngineService, GeoEngineService>();
 builder.Services.AddScoped<IQuotaLedgerService, QuotaLedgerService>();
 builder.Services.AddScoped<ICompetitorService, CompetitorService>();
+builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
 // Register MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(GetWebsitesQuery).Assembly));
@@ -46,12 +50,41 @@ builder.Services.AddDbContext<AkironDbContext>(options =>
 
 builder.Services.AddScoped<IAkironDbContext>(sp => sp.GetRequiredService<AkironDbContext>());
 
+// JWT Authentication
+var jwtSecretKey = builder.Configuration["Jwt:SecretKey"]
+    ?? throw new InvalidOperationException("Jwt:SecretKey is not configured.");
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "AkironSeo.API",
+        ValidAudience = builder.Configuration["Jwt:Audience"] ?? "AkironSeo.Client",
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey)),
+        ClockSkew = TimeSpan.FromSeconds(30)
+    };
+});
+
+builder.Services.AddAuthorization();
+
 // Configure CORS for Next.js Frontend
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? ["http://localhost:3000"];
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendCors", policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -76,6 +109,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors("FrontendCors");
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
