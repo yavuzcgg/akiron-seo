@@ -10,19 +10,17 @@ public static class GeoEndpoints
 {
     public static void MapGeoEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/websites");
+        var group = app.MapGroup("/api/v1/websites").RequireAuthorization();
 
-        group.MapGet("/{websiteId}/geo-analysis", async (Guid websiteId, Guid tenantId, ITenantContext tenantContext, IMediator mediator) =>
+        group.MapGet("/{websiteId}/geo-analysis", async (Guid websiteId, IMediator mediator) =>
         {
-            tenantContext.SetTenantId(tenantId);
             var result = await mediator.Send(new GetGeoAnalysisQuery(websiteId));
             return Results.Ok(result);
         });
 
-        group.MapPost("/{websiteId}/analyze-prompt", async (Guid websiteId, Guid tenantId, AnalyzePromptRequestDto request, ITenantContext tenantContext, IGeoEngineService geoService) =>
+        group.MapPost("/{websiteId}/analyze-prompt", async (Guid websiteId, AnalyzePromptRequestDto request, ITenantContext tenantContext, IGeoEngineService geoService) =>
         {
-            tenantContext.SetTenantId(tenantId);
-            var result = await geoService.EvaluateCustomPromptAsync(websiteId, tenantId, request.PromptText);
+            var result = await geoService.EvaluateCustomPromptAsync(websiteId, tenantContext.CurrentTenantId, request.PromptText);
             return Results.Ok(result);
         });
     }

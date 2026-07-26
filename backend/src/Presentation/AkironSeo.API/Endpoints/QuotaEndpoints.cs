@@ -6,12 +6,11 @@ public static class QuotaEndpoints
 {
     public static void MapQuotaEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/tenant");
+        var group = app.MapGroup("/api/v1/tenant").RequireAuthorization();
 
-        group.MapGet("/quota", async (Guid tenantId, ITenantContext tenantContext, IQuotaLedgerService quotaLedgerService) =>
+        group.MapGet("/quota", async (ITenantContext tenantContext, IQuotaLedgerService quotaLedgerService) =>
         {
-            tenantContext.SetTenantId(tenantId);
-            var result = await quotaLedgerService.GetTenantQuotaStatusAsync(tenantId);
+            var result = await quotaLedgerService.GetTenantQuotaStatusAsync(tenantContext.CurrentTenantId);
             return Results.Ok(result);
         });
     }

@@ -2,7 +2,6 @@ using AkironSeo.Application.Auth.Dtos;
 using AkironSeo.Application.Common.Interfaces;
 using AkironSeo.Domain.Entities.TenantScoped;
 using AkironSeo.Infrastructure.Persistence;
-using AkironSeo.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace AkironSeo.API.Endpoints;
@@ -11,15 +10,15 @@ public static class TenantEndpoints
 {
     public static void MapTenantEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/tenant");
+        var group = app.MapGroup("/api/v1/tenant").RequireAuthorization();
 
         group.MapPost("/api-keys", async (SaveApiKeyDto request, ITenantContext tenantContext, AkironDbContext db, IApiKeyEncryptionService encryptionService) =>
         {
-            tenantContext.SetTenantId(request.TenantId);
+            var currentTenantId = tenantContext.CurrentTenantId;
 
             var encryptedKey = encryptionService.Encrypt(request.ApiKey);
             var existing = await db.EncryptedTenantApiKeys
-                .FirstOrDefaultAsync(k => k.TenantId == request.TenantId && k.Provider == request.Provider);
+                .FirstOrDefaultAsync(k => k.TenantId == currentTenantId && k.Provider == request.Provider);
 
             if (existing != null)
             {
@@ -30,7 +29,7 @@ public static class TenantEndpoints
             {
                 db.EncryptedTenantApiKeys.Add(new EncryptedTenantApiKey
                 {
-                    TenantId = request.TenantId,
+                    TenantId = currentTenantId,
                     Provider = request.Provider,
                     EncryptedKey = encryptedKey,
                     IsActive = true

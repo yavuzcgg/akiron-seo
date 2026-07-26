@@ -111,6 +111,7 @@ using (var scope = app.Services.CreateScope())
 app.UseCors("FrontendCors");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<TenantResolverMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -120,7 +121,7 @@ if (app.Environment.IsDevelopment())
 // ----------------------------------------------------
 // MAP MODULAR ENDPOINTS
 // ----------------------------------------------------
-app.MapAuthEndpoints();
+app.MapAuthEndpoints();                  // AllowAnonymous (configured inside)
 app.MapWebsiteEndpoints();
 app.MapTenantEndpoints();
 app.MapAiEndpoints();
