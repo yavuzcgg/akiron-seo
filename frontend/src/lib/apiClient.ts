@@ -6,10 +6,16 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  const headers = {
+  const token = typeof window !== "undefined" ? localStorage.getItem("akiron_token") : null;
+
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
   };
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
 
   const response = await fetch(url, { ...options, headers });
   const data = await response.json();
@@ -123,51 +129,51 @@ export const apiClient = {
       ),
   },
   websites: {
-    list: (tenantId: string) =>
+    list: () =>
       apiRequest<Array<{ id: string; name: string; domainUrl: string; isVerified: boolean; verificationToken: string; createdAt: string }>>(
-        `/websites?tenantId=${tenantId}`
+        "/websites"
       ),
-    create: (tenantId: string, body: { name: string; domainUrl: string }) =>
+    create: (body: { name: string; domainUrl: string }) =>
       apiRequest<{ success: boolean; websiteId: string }>(
-        `/websites?tenantId=${tenantId}`,
+        "/websites",
         { method: "POST", body: JSON.stringify(body) }
       ),
-    verify: (websiteId: string, tenantId: string, method: number = 1) =>
+    verify: (websiteId: string, method: number = 1) =>
       apiRequest<{ success: boolean; verified: boolean }>(
-        `/websites/${websiteId}/verify?tenantId=${tenantId}&method=${method}`,
+        `/websites/${websiteId}/verify?method=${method}`,
         { method: "POST" }
       ),
-    crawl: (websiteId: string, tenantId: string) =>
+    crawl: (websiteId: string) =>
       apiRequest<{ success: boolean; auditId: string; score: number }>(
-        `/websites/${websiteId}/crawl?tenantId=${tenantId}`,
+        `/websites/${websiteId}/crawl`,
         { method: "POST" }
       ),
-    getLatestAudit: (websiteId: string, tenantId: string) =>
+    getLatestAudit: (websiteId: string) =>
       apiRequest<any>(
-        `/websites/${websiteId}/latest-audit?tenantId=${tenantId}`
+        `/websites/${websiteId}/latest-audit`
       ),
-    getAiSuggestions: (websiteId: string, tenantId: string) =>
+    getAiSuggestions: (websiteId: string) =>
       apiRequest<AiSeoRecommendation>(
-        `/websites/${websiteId}/ai-suggestions?tenantId=${tenantId}`,
+        `/websites/${websiteId}/ai-suggestions`,
         { method: "POST" }
       ),
-    getRobotsTxtAudit: (websiteId: string, tenantId: string) =>
+    getRobotsTxtAudit: (websiteId: string) =>
       apiRequest<RobotsTxtAudit>(
-        `/websites/${websiteId}/robots-txt-audit?tenantId=${tenantId}`
+        `/websites/${websiteId}/robots-txt-audit`
       ),
-    getAeoSchemas: (websiteId: string, tenantId: string) =>
+    getAeoSchemas: (websiteId: string) =>
       apiRequest<AeoSchemas>(
-        `/websites/${websiteId}/aeo-schemas?tenantId=${tenantId}`
+        `/websites/${websiteId}/aeo-schemas`
       ),
   },
   keywords: {
-    list: (websiteId: string, tenantId: string) =>
+    list: (websiteId: string) =>
       apiRequest<TrackedKeyword[]>(
-        `/websites/${websiteId}/keywords?tenantId=${tenantId}`
+        `/websites/${websiteId}/keywords`
       ),
-    add: (tenantId: string, body: { websiteId: string; keywordText: string; language?: string; cronExpression?: string }) =>
+    add: (body: { websiteId: string; keywordText: string; language?: string; cronExpression?: string }) =>
       apiRequest<{ success: boolean; keywordId: string }>(
-        `/keywords?tenantId=${tenantId}`,
+        "/keywords",
         {
           method: "POST",
           body: JSON.stringify({
@@ -178,20 +184,20 @@ export const apiClient = {
           }),
         }
       ),
-    checkRank: (keywordId: string, tenantId: string) =>
+    checkRank: (keywordId: string) =>
       apiRequest<TrackedKeyword>(
-        `/keywords/${keywordId}/check-rank?tenantId=${tenantId}`,
+        `/keywords/${keywordId}/check-rank`,
         { method: "POST" }
       ),
   },
   geo: {
-    getAnalysis: (websiteId: string, tenantId: string) =>
+    getAnalysis: (websiteId: string) =>
       apiRequest<GeoAnalysisResult>(
-        `/websites/${websiteId}/geo-analysis?tenantId=${tenantId}`
+        `/websites/${websiteId}/geo-analysis`
       ),
-    analyzePrompt: (websiteId: string, tenantId: string, promptText: string) =>
+    analyzePrompt: (websiteId: string, promptText: string) =>
       apiRequest<GeoAnalysisResult>(
-        `/websites/${websiteId}/analyze-prompt?tenantId=${tenantId}`,
+        `/websites/${websiteId}/analyze-prompt`,
         {
           method: "POST",
           body: JSON.stringify({ promptText }),
@@ -199,13 +205,13 @@ export const apiClient = {
       ),
   },
   competitors: {
-    list: (websiteId: string, tenantId: string) =>
+    list: (websiteId: string) =>
       apiRequest<CompetitorGapResult[]>(
-        `/websites/${websiteId}/competitors?tenantId=${tenantId}`
+        `/websites/${websiteId}/competitors`
       ),
-    analyze: (websiteId: string, tenantId: string, competitorDomain: string) =>
+    analyze: (websiteId: string, competitorDomain: string) =>
       apiRequest<CompetitorGapResult>(
-        `/websites/${websiteId}/analyze-competitor?tenantId=${tenantId}`,
+        `/websites/${websiteId}/analyze-competitor`,
         {
           method: "POST",
           body: JSON.stringify({ competitorDomain }),
@@ -213,11 +219,11 @@ export const apiClient = {
       ),
   },
   tenant: {
-    getQuota: (tenantId: string) =>
+    getQuota: () =>
       apiRequest<TenantQuotaStatus>(
-        `/tenant/quota?tenantId=${tenantId}`
+        "/tenant/quota"
       ),
-    saveApiKey: (body: { tenantId: string; provider: number; apiKey: string }) =>
+    saveApiKey: (body: { provider: number; apiKey: string }) =>
       apiRequest<{ success: boolean; message: string }>(
         "/tenant/api-keys",
         { method: "POST", body: JSON.stringify(body) }

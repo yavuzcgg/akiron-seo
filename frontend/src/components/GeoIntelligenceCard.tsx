@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 interface ComponentProps {
   websiteId: string;
   websiteName: string;
-  tenantId: string;
+  tenantId?: string;
 }
 
 export default function GeoIntelligenceCard({ websiteId, websiteName, tenantId }: ComponentProps) {
@@ -17,7 +17,7 @@ export default function GeoIntelligenceCard({ websiteId, websiteName, tenantId }
 
   const fetchGeoAnalysis = async () => {
     try {
-      const data = await apiClient.geo.getAnalysis(websiteId, tenantId);
+      const data = await apiClient.geo.getAnalysis(websiteId);
       setGeoData(data);
     } catch {
       // Offline fallback
@@ -35,7 +35,7 @@ export default function GeoIntelligenceCard({ websiteId, websiteName, tenantId }
     setLoading(true);
     setError(null);
     try {
-      const data = await apiClient.geo.analyzePrompt(websiteId, tenantId, customPrompt.trim());
+      const data = await apiClient.geo.analyzePrompt(websiteId, customPrompt.trim());
       setGeoData(data);
     } catch (err: any) {
       setError(err.message || "Failed to analyze prompt.");

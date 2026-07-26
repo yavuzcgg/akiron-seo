@@ -25,7 +25,7 @@ export interface AuditReportData {
 
 interface ModalProps {
   report: AuditReportData | null;
-  tenantId: string;
+  tenantId?: string;
   onClose: () => void;
 }
 
@@ -46,7 +46,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
     setLoadingAi(true);
     setErrorAi(null);
     try {
-      const data = await apiClient.websites.getAiSuggestions(report.websiteId, tenantId);
+      const data = await apiClient.websites.getAiSuggestions(report.websiteId);
       setAiAnalysis(data);
     } catch (err: any) {
       setErrorAi(err.message || "Failed to generate AI recommendations.");

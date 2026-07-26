@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 interface ComponentProps {
   websiteId: string;
   websiteName: string;
-  tenantId: string;
+  tenantId?: string;
 }
 
 export default function CompetitorAnalysisCard({ websiteId, websiteName, tenantId }: ComponentProps) {
@@ -17,7 +17,7 @@ export default function CompetitorAnalysisCard({ websiteId, websiteName, tenantI
 
   const fetchCompetitors = async () => {
     try {
-      const data = await apiClient.competitors.list(websiteId, tenantId);
+      const data = await apiClient.competitors.list(websiteId);
       if (data && data.length > 0) {
         setCompetitorData(data[0]);
       }
@@ -37,7 +37,7 @@ export default function CompetitorAnalysisCard({ websiteId, websiteName, tenantI
     setLoading(true);
     setError(null);
     try {
-      const res = await apiClient.competitors.analyze(websiteId, tenantId, competitorInput.trim());
+      const res = await apiClient.competitors.analyze(websiteId, competitorInput.trim());
       setCompetitorData(res);
     } catch (err: any) {
       setError(err.message || "Failed to analyze competitor.");

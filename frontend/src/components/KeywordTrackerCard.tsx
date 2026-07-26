@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 interface ComponentProps {
   websiteId: string;
-  tenantId: string;
+  tenantId?: string;
 }
 
 export default function KeywordTrackerCard({ websiteId, tenantId }: ComponentProps) {
@@ -17,7 +17,7 @@ export default function KeywordTrackerCard({ websiteId, tenantId }: ComponentPro
 
   const fetchKeywords = async () => {
     try {
-      const data = await apiClient.keywords.list(websiteId, tenantId);
+      const data = await apiClient.keywords.list(websiteId);
       setKeywords(data);
     } catch {
       // Offline fallback
@@ -35,7 +35,7 @@ export default function KeywordTrackerCard({ websiteId, tenantId }: ComponentPro
     setLoading(true);
     setError(null);
     try {
-      const res = await apiClient.keywords.add(tenantId, {
+      const res = await apiClient.keywords.add({
         websiteId,
         keywordText: newKeywordText.trim(),
         language: "tr",
@@ -56,7 +56,7 @@ export default function KeywordTrackerCard({ websiteId, tenantId }: ComponentPro
     setCheckingId(keywordId);
     setError(null);
     try {
-      await apiClient.keywords.checkRank(keywordId, tenantId);
+      await apiClient.keywords.checkRank(keywordId);
       fetchKeywords();
     } catch (err: any) {
       setError(err.message || "Failed to check rank position.");

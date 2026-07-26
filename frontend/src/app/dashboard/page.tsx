@@ -23,7 +23,6 @@ interface Website {
 
 export default function DashboardPage() {
   const { theme, toggleTheme, lang, setLang, t } = useApp();
-  const [tenantId, setTenantId] = useState<string>("33333333-3333-3333-3333-333333333333");
   const [websites, setWebsites] = useState<Website[]>([]);
   const [loading, setLoading] = useState(false);
   
@@ -40,17 +39,9 @@ export default function DashboardPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Load tenantId from localStorage on mount
-  useEffect(() => {
-    const savedTenantId = localStorage.getItem("akiron_tenant_id");
-    if (savedTenantId) {
-      setTenantId(savedTenantId);
-    }
-  }, []);
-
   const fetchWebsites = async () => {
     try {
-      const data = await apiClient.websites.list(tenantId);
+      const data = await apiClient.websites.list();
       setWebsites(data);
     } catch {
       // API Offline fallback
@@ -59,11 +50,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchWebsites();
-  }, [tenantId]);
+  }, []);
 
   const fetchLatestAudit = async (websiteId: string) => {
     try {
-      const report = await apiClient.websites.getLatestAudit(websiteId, tenantId);
+      const report = await apiClient.websites.getLatestAudit(websiteId);
       if (report) {
         setActiveAuditReport(report);
       } else {
@@ -81,7 +72,7 @@ export default function DashboardPage() {
     setError(null);
 
     try {
-      const data = await apiClient.websites.create(tenantId, { name: newSiteName, domainUrl: newDomainUrl });
+      const data = await apiClient.websites.create({ name: newSiteName, domainUrl: newDomainUrl });
       if (data.success) {
         setMessage(`Website '${newSiteName}' added successfully!`);
         setNewSiteName("");
@@ -99,7 +90,7 @@ export default function DashboardPage() {
     setMessage(null);
     setError(null);
     try {
-      const data = await apiClient.websites.verify(websiteId, tenantId, 1);
+      const data = await apiClient.websites.verify(websiteId, 1);
       if (data.verified) {
         setMessage("Website ownership verified successfully!");
         fetchWebsites();
@@ -115,7 +106,7 @@ export default function DashboardPage() {
     setMessage(null);
     setError(null);
     try {
-      const data = await apiClient.websites.crawl(websiteId, tenantId);
+      const data = await apiClient.websites.crawl(websiteId);
       if (data.success) {
         setMessage(`Crawl completed! Audit Score: ${data.score}/100`);
         fetchLatestAudit(websiteId);
@@ -131,7 +122,6 @@ export default function DashboardPage() {
     setError(null);
     try {
       const data = await apiClient.tenant.saveApiKey({
-        tenantId,
         provider: parseInt(apiKeyProvider),
         apiKey: apiKeyValue,
       });
@@ -286,27 +276,23 @@ export default function DashboardPage() {
                       <GeoIntelligenceCard
                         websiteId={site.id}
                         websiteName={site.name}
-                        tenantId={tenantId}
                       />
 
                       {/* Competitor Intelligence & SERP Gap Card */}
                       <CompetitorAnalysisCard
                         websiteId={site.id}
                         websiteName={site.name}
-                        tenantId={tenantId}
                       />
 
                       {/* Keyword Rank Tracker Card */}
                       <KeywordTrackerCard
                         websiteId={site.id}
-                        tenantId={tenantId}
                       />
 
                       {/* AI Bot Auditor Sub-card */}
                       <AiBotAuditorCard
                         websiteId={site.id}
                         websiteName={site.name}
-                        tenantId={tenantId}
                       />
                     </div>
                   ))}
@@ -318,7 +304,7 @@ export default function DashboardPage() {
           {/* Column 2: BYOK Key Settings & Quota Ledger */}
           <div className="space-y-6">
             {/* Tenant Quota Meter Card */}
-            <TenantQuotaCard tenantId={tenantId} />
+            <TenantQuotaCard />
 
             {/* BYOK API Key Settings */}
             <div className="p-6 rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] space-y-4">
@@ -368,7 +354,6 @@ export default function DashboardPage() {
       {/* Detailed SEO Audit Report Modal */}
       <AuditDetailsModal
         report={activeAuditReport}
-        tenantId={tenantId}
         onClose={() => setActiveAuditReport(null)}
       />
 
@@ -376,7 +361,6 @@ export default function DashboardPage() {
       <AeoGeneratorModal
         websiteId={aeoModalSite?.id || null}
         websiteName={aeoModalSite?.name || ""}
-        tenantId={tenantId}
         onClose={() => setAeoModalSite(null)}
       />
 

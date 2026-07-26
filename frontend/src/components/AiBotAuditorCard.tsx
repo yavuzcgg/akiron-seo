@@ -6,7 +6,7 @@ import { useState } from "react";
 interface CardProps {
   websiteId: string;
   websiteName: string;
-  tenantId: string;
+  tenantId?: string;
 }
 
 export default function AiBotAuditorCard({ websiteId, websiteName, tenantId }: CardProps) {
@@ -18,7 +18,7 @@ export default function AiBotAuditorCard({ websiteId, websiteName, tenantId }: C
     setLoading(true);
     setError(null);
     try {
-      const data = await apiClient.websites.getRobotsTxtAudit(websiteId, tenantId);
+      const data = await apiClient.websites.getRobotsTxtAudit(websiteId);
       setAudit(data);
     } catch (err: any) {
       setError(err.message || "Failed to audit robots.txt.");

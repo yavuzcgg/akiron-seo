@@ -6,7 +6,7 @@ import { useState } from "react";
 interface ModalProps {
   websiteId: string | null;
   websiteName: string;
-  tenantId: string;
+  tenantId?: string;
   onClose: () => void;
 }
 
@@ -21,7 +21,7 @@ export default function AeoGeneratorModal({ websiteId, websiteName, tenantId, on
   const fetchSchemas = async () => {
     setLoading(true);
     try {
-      const data = await apiClient.websites.getAeoSchemas(websiteId, tenantId);
+      const data = await apiClient.websites.getAeoSchemas(websiteId);
       setSchemas(data);
     } catch {
       // Handle error

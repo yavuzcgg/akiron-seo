@@ -4,7 +4,7 @@ import { apiClient, TenantQuotaStatus } from "@/lib/apiClient";
 import { useEffect, useState } from "react";
 
 interface ComponentProps {
-  tenantId: string;
+  tenantId?: string;
 }
 
 export default function TenantQuotaCard({ tenantId }: ComponentProps) {
@@ -12,7 +12,7 @@ export default function TenantQuotaCard({ tenantId }: ComponentProps) {
 
   const fetchQuota = async () => {
     try {
-      const data = await apiClient.tenant.getQuota(tenantId);
+      const data = await apiClient.tenant.getQuota();
       setQuota(data);
     } catch {
       // Offline fallback
