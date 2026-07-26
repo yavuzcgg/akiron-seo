@@ -78,15 +78,31 @@ public static class DbInitializer
         }
     }
 
+    private const int SaltSize = 16;   // 128-bit
+    private const int HashSize = 32;   // 256-bit
+    private const int Iterations = 600_000;
+    private static readonly HashAlgorithmName Algorithm = HashAlgorithmName.SHA512;
+
     public static string HashPassword(string password)
     {
-        using var sha256 = SHA256.Create();
-        var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-        return Convert.ToBase64String(bytes);
+        var salt = RandomNumberGenerator.GetBytes(SaltSize);
+        var hash = Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(password), salt, Iterations, Algorithm, HashSize);
+
+        return $"{Convert.ToBase64String(salt)}:{Convert.ToBase64String(hash)}";
     }
 
-    public static bool VerifyPassword(string password, string hash)
+    public static bool VerifyPassword(string password, string storedHash)
     {
-        return HashPassword(password) == hash;
+        var parts = storedHash.Split(':');
+        if (parts.Length != 2) return false;
+
+        var salt = Convert.FromBase64String(parts[0]);
+        var expectedHash = Convert.FromBase64String(parts[1]);
+
+        var actualHash = Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(password), salt, Iterations, Algorithm, HashSize);
+
+        return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
     }
 }
