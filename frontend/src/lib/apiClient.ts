@@ -354,6 +354,10 @@ export const apiClient = {
         { method: "POST", body: JSON.stringify({ olderThanDays }) }
       ),
   },
+  reports: {
+    getExecutiveReportUrl: (websiteId: string) =>
+      `${API_BASE_URL}/websites/${websiteId}/export-report`,
+  },
   tenant: {
     getQuota: () =>
       apiRequest<TenantQuotaStatus>(

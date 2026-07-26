@@ -263,7 +263,27 @@ export default function DashboardPage() {
                             onClick={() => fetchLatestAudit(site.id)}
                             className="px-3 py-1 rounded-lg border border-blue-500/30 text-blue-400 text-xs font-semibold hover:bg-blue-500/10"
                           >
-                            📊 Report
+                            📊 Audit Report
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              const token = localStorage.getItem("akiron_token");
+                              const url = apiClient.reports.getExecutiveReportUrl(site.id);
+                              const win = window.open(url, "_blank");
+                              if (win && token) {
+                                fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+                                  .then((res) => res.text())
+                                  .then((html) => {
+                                    win.document.open();
+                                    win.document.write(html);
+                                    win.document.close();
+                                  });
+                              }
+                            }}
+                            className="px-3 py-1 rounded-lg border border-emerald-500/30 text-emerald-300 text-xs font-semibold hover:bg-emerald-500/10"
+                          >
+                            📄 Executive HTML
                           </button>
 
                           <button

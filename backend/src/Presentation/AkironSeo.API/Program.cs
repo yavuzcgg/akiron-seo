@@ -36,6 +36,7 @@ builder.Services.AddScoped<IQuotaLedgerService, QuotaLedgerService>();
 builder.Services.AddScoped<ICompetitorService, CompetitorService>();
 builder.Services.AddScoped<ICitationVerificationService, CitationVerificationService>();
 builder.Services.AddScoped<IAiContentWriterService, AiContentWriterService>();
+builder.Services.AddScoped<IReportExportService, ReportExportService>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
 // Register MediatR
@@ -134,5 +135,6 @@ app.MapQuotaEndpoints();
 app.MapNotificationEndpoints();
 app.MapContentEndpoints();
 app.MapAdminEndpoints();
+app.MapReportEndpoints();
 
 app.Run();

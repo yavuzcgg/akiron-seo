@@ -67,12 +67,35 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
             <p className="text-xs text-slate-400">{report.domainUrl} • Crawled {new Date(report.crawledAt).toLocaleString()}</p>
           </div>
           
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const token = localStorage.getItem("akiron_token");
+                const url = apiClient.reports.getExecutiveReportUrl(report.websiteId);
+                const win = window.open(url, "_blank");
+                if (win && token) {
+                  // Fetch and render HTML with auth header
+                  fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+                    .then((res) => res.text())
+                    .then((html) => {
+                      win.document.open();
+                      win.document.write(html);
+                      win.document.close();
+                    });
+                }
+              }}
+              className="px-3.5 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 font-bold text-xs transition border border-blue-500/30 flex items-center gap-1.5"
+            >
+              📄 Executive Report
+            </button>
+
+            <button
+              onClick={onClose}
+              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Score Overview Cards */}

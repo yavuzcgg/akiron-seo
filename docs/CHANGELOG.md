@@ -4,6 +4,20 @@ All progress, phase updates, and development milestones for **Akiron SEO** are r
 
 ---
 
+## [Executive Report Exporter & PostgreSQL jsonb Migration - Completed] - 2026-07-26
+
+### 🎯 Objective
+Implement Option 2: Branded Executive SEO & GEO Printable HTML/PDF Report Exporter (`ReportExportService`) and Option 3: Technical Debt Cleanup – PostgreSQL Native `jsonb` Column Migration (`MigrateJsonToNativeJsonb`).
+
+### 📋 Completed Milestones
+- [x] **R.1: Executive Report Export Service**: Implemented `ReportExportService` compiling SEO score, Meta tags, GEO Share of Voice %, Gold Opportunities, and AEO Schemas into a responsive, printable HTML document with `@media print` CSS.
+- [x] **R.2: Executive Report API & Frontend Buttons**: Added `GET /api/v1/websites/{id}/export-report` endpoint and `"📄 Executive Report"` buttons to `AuditDetailsModal.tsx` and `dashboard/page.tsx`.
+- [x] **M.1: Entity Default JSON Normalization**: Normalized string initializers across domain entities (`CrawlResult`, `SeoAudit`, `GeoAnalysis`) to valid JSON (`"{}"` / `"[]"`).
+- [x] **M.2: EF Core jsonb Mappings**: Configured `.HasColumnType("jsonb")` mappings for all 11 JSON string columns in `AkironDbContext.cs`.
+- [x] **M.3: EF Core Migration**: Scaffolded and generated EF Core migration `MigrateJsonToNativeJsonb`.
+
+---
+
 ## [SuperAdmin Dashboard & B2B Tenant Management - Completed] - 2026-07-26
 
 ### 🎯 Objective

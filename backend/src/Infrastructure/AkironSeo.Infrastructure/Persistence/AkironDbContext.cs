@@ -86,6 +86,25 @@ public class AkironDbContext : DbContext, IAkironDbContext
             .Property(a => a.EstimatedCostUsd)
             .HasPrecision(18, 6);
 
+        // Configure PostgreSQL Native jsonb Column Mappings
+        modelBuilder.Entity<CrawlResult>(entity =>
+        {
+            entity.Property(e => e.H1Json).HasColumnType("jsonb");
+            entity.Property(e => e.IssuesJson).HasColumnType("jsonb");
+            entity.Property(e => e.PageSpeedMetricsJson).HasColumnType("jsonb");
+        });
+
+        modelBuilder.Entity<SeoAudit>(entity =>
+        {
+            entity.Property(e => e.RobotsTxtAiStatusJson).HasColumnType("jsonb");
+        });
+
+        modelBuilder.Entity<GeoAnalysis>(entity =>
+        {
+            entity.Property(e => e.CompetitorsJson).HasColumnType("jsonb");
+            entity.Property(e => e.RawResponseJson).HasColumnType("jsonb");
+        });
+
         // Apply Automatic Global Query Filters for IMultiTenant and ISoftDelete via generic helper
         var setQueryFilterMethod = typeof(AkironDbContext)
             .GetMethod(nameof(SetQueryFilter), BindingFlags.NonPublic | BindingFlags.Instance)!;
