@@ -6,6 +6,30 @@
 - **Docker Desktop**: required for the database and for the integration test suite
 - **dotnet-ef**: `dotnet tool install --global dotnet-ef` (keep it aligned with the EF Core package version)
 
+## 🔐 First-Time Secret Setup
+
+No secret is committed to the repository, so two files must be created before anything runs.
+
+**Backend local development** — copy the example and keep the copy out of git (it is already gitignored):
+```powershell
+cd <repo>\backend\src\Presentation\AkironSeo.API
+Copy-Item appsettings.Development.example.json appsettings.Development.json
+```
+
+**Docker / deployment** — copy `.env.example` to `.env` and replace every value:
+```powershell
+cd <repo>
+Copy-Item .env.example .env
+```
+Generate the two keys with `openssl rand -base64 48`. The API refuses to start in any
+non-Development environment when `Jwt__SecretKey` or `Security__MasterEncryptionKey` is
+missing or still set to an example value.
+
+> Rotating `MASTER_ENCRYPTION_KEY` makes every previously stored tenant BYOK API key
+> undecryptable — they have to be re-entered.
+
+---
+
 ## 🚀 Local Running Commands
 
 Run each of the three from its own terminal. Paths below assume the repository lives at `<repo>`.
@@ -15,7 +39,9 @@ Run each of the three from its own terminal. Paths below assume the repository l
 cd <repo>
 docker compose up -d --wait
 ```
-`--wait` blocks until the healthcheck passes, so the API never starts against a database that is not accepting connections yet.
+`--wait` blocks until every healthcheck passes, so the API never starts against a database that is not accepting connections yet.
+
+Postgres is not published to the host in `docker-compose.yml`; add a `ports` mapping locally if you want to attach a SQL client directly.
 
 ### 2. Backend (.NET 10 Web API)
 ```powershell
@@ -36,21 +62,20 @@ Serves `http://localhost:3000` and talks to the API at `NEXT_PUBLIC_API_URL`, de
 
 ## 🗄️ Database
 
-Connection settings live in `backend/src/Presentation/AkironSeo.API/appsettings.json` under `ConnectionStrings:DefaultConnection` and match `docker-compose.yml`:
-
-| Setting | Value |
-| --- | --- |
-| Host / Port | `localhost` / `5432` |
-| Database | `akironseo_db` |
-| Username / Password | `akiron_user` / `akiron_password` |
+Local connection settings live in `appsettings.Development.json`; deployments supply
+`ConnectionStrings__DefaultConnection` as an environment variable from `.env`.
 
 Open a SQL shell:
 ```powershell
-docker exec -it akironseo_postgres psql -U akiron_user -d akironseo_db
+docker compose exec postgres psql -U akiron_user -d akironseo_db
 ```
 
 ### Seeded Accounts
-The API seeds a SuperAdmin on first run: `admin@akironseo.com` / `Admin123!` (tenant "Akiron HQ"). Development only — it must not reach a deployed environment.
+Plans are seeded in every environment. The SuperAdmin account (`admin@akironseo.com` /
+`Admin123!`, tenant "Akiron HQ") is seeded **only when the host runs as Development** —
+`Program.cs` passes `seedSuperAdmin: app.Environment.IsDevelopment()`. A deployed
+environment therefore has no default account, and the first SuperAdmin must be promoted
+manually in the database.
 
 ### Migrations
 The schema is owned by EF Core migrations in `backend/src/Infrastructure/AkironSeo.Infrastructure/Persistence/Migrations`. Never use `EnsureCreated` alongside them.

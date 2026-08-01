@@ -1,4 +1,5 @@
 using AkironSeo.Application.Common.Interfaces;
+using AkironSeo.Application.Common.Security;
 using AkironSeo.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -12,12 +13,18 @@ public class VerifyWebsiteOwnershipCommandHandler : IRequestHandler<VerifyWebsit
     private readonly IAkironDbContext _dbContext;
     private readonly ITenantContext _tenantContext;
     private readonly HttpClient _httpClient;
+    private readonly IDnsLookupService _dnsLookupService;
 
-    public VerifyWebsiteOwnershipCommandHandler(IAkironDbContext dbContext, ITenantContext tenantContext, HttpClient httpClient)
+    public VerifyWebsiteOwnershipCommandHandler(
+        IAkironDbContext dbContext,
+        ITenantContext tenantContext,
+        HttpClient httpClient,
+        IDnsLookupService dnsLookupService)
     {
         _dbContext = dbContext;
         _tenantContext = tenantContext;
         _httpClient = httpClient;
+        _dnsLookupService = dnsLookupService;
     }
 
     public async Task<bool> Handle(VerifyWebsiteOwnershipCommand request, CancellationToken cancellationToken)
@@ -39,7 +46,7 @@ public class VerifyWebsiteOwnershipCommandHandler : IRequestHandler<VerifyWebsit
         {
             try
             {
-                var targetUrl = $"https://{website.DomainUrl}";
+                var targetUrl = await OutboundUrlGuard.EnsureSafeAsync(website.DomainUrl, cancellationToken);
                 var html = await _httpClient.GetStringAsync(targetUrl, cancellationToken);
                 var expectedMeta = $"<meta name=\"akiron-site-verification\" content=\"{website.VerificationToken}\"";
                 verified = html.Contains(expectedMeta, StringComparison.OrdinalIgnoreCase);
@@ -51,8 +58,8 @@ public class VerifyWebsiteOwnershipCommandHandler : IRequestHandler<VerifyWebsit
         }
         else if (request.Method == VerificationMethodEnum.DnsTxt)
         {
-            // Simulating DNS TXT verification check
-            verified = true;
+            verified = await _dnsLookupService.HasTxtRecordAsync(
+                website.DomainUrl, website.VerificationToken, cancellationToken);
         }
 
         if (verified)

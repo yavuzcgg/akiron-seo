@@ -1,11 +1,21 @@
 "use client";
 
+import AuthGuard from "@/components/AuthGuard";
 import { useApp } from "@/components/providers";
 import { AdminTenantDto, AdminUsageLogDto, apiClient } from "@/lib/apiClient";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function AdminDashboardPage() {
+  return (
+    <AuthGuard requireSuperAdmin>
+      <AdminDashboardContent />
+    </AuthGuard>
+  );
+}
+
+function AdminDashboardContent() {
   const { theme, toggleTheme, lang, setLang } = useApp();
   const [tenants, setTenants] = useState<AdminTenantDto[]>([]);
   const [usageLogs, setUsageLogs] = useState<AdminUsageLogDto[]>([]);
@@ -28,8 +38,8 @@ export default function AdminDashboardPage() {
       ]);
       setTenants(tenantsData);
       setUsageLogs(logsData);
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch admin data.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to fetch admin data."));
     } finally {
       setLoading(false);
     }
@@ -57,8 +67,8 @@ export default function AdminDashboardPage() {
         setSelectedTenant(null);
         fetchData();
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to update quota.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to update quota."));
     } finally {
       setSubmittingQuota(false);
     }
@@ -71,8 +81,8 @@ export default function AdminDashboardPage() {
       const res = await apiClient.admin.toggleStatus(tenantId);
       setMessage(`Tenant '${tenantName}' status changed to ${res.isActive ? "Active" : "Disabled"}.`);
       fetchData();
-    } catch (err: any) {
-      setError(err.message || "Failed to toggle tenant status.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to toggle tenant status."));
     }
   };
 
@@ -83,8 +93,8 @@ export default function AdminDashboardPage() {
       const res = await apiClient.admin.pruneLogs(30);
       setMessage(`System cleanup complete! Pruned ${res.prunedRecordsCount} expired log records.`);
       fetchData();
-    } catch (err: any) {
-      setError(err.message || "Failed to prune logs.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to prune logs."));
     }
   };
 

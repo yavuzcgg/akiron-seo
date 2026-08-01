@@ -27,6 +27,13 @@ public static class AuthEndpoints
                 return Results.BadRequest(new AuthResponseDto(false, "Invalid email or password.", null, null, null, null));
             }
 
+            // Deactivated accounts get the same message as bad credentials so the response
+            // does not reveal which addresses are registered.
+            if (!user.IsActive)
+            {
+                return Results.BadRequest(new AuthResponseDto(false, "Invalid email or password.", null, null, null, null));
+            }
+
             var tenantUser = await db.TenantUsers
                 .IgnoreQueryFilters()
                 .Include(tu => tu.Tenant)
@@ -180,7 +187,7 @@ public static class AuthEndpoints
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(u => u.Id == userId);
 
-            if (user is null)
+            if (user is null || !user.IsActive)
             {
                 return Results.Unauthorized();
             }

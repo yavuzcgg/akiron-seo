@@ -2,6 +2,8 @@
 
 import { useApp } from "@/components/providers";
 import { apiClient } from "@/lib/apiClient";
+import { getErrorMessage } from "@/lib/errors";
+import { saveSession } from "@/lib/session";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -27,9 +29,12 @@ export default function RegisterPage() {
     try {
       const data = await apiClient.auth.register({ tenantName, fullName, email, password });
 
-      if (data.success) {
-        if (data.accessToken) localStorage.setItem("akiron_token", data.accessToken);
-        if (data.tenantId) localStorage.setItem("akiron_tenant_id", data.tenantId);
+      if (data.success && data.accessToken) {
+        saveSession({
+          accessToken: data.accessToken,
+          tenantId: data.tenantId ?? "",
+          role: data.role ?? "Owner",
+        });
 
         setMessage("Account created! Redirecting to dashboard...");
         setTimeout(() => {
@@ -38,8 +43,8 @@ export default function RegisterPage() {
       } else {
         setError(data.message || "Failed to register organization.");
       }
-    } catch (err: any) {
-      setError(err.message || "Could not connect to server. Please try again.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not connect to server. Please try again."));
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,7 @@
 
 import AeoGeneratorModal from "@/components/AeoGeneratorModal";
 import AiBotAuditorCard from "@/components/AiBotAuditorCard";
+import AuthGuard from "@/components/AuthGuard";
 import AiContentWriterModal from "@/components/AiContentWriterModal";
 import AuditDetailsModal from "@/components/AuditDetailsModal";
 import { AuditReportData } from "@/lib/apiClient";
@@ -13,6 +14,8 @@ import KeywordTrackerCard from "@/components/KeywordTrackerCard";
 import TenantQuotaCard from "@/components/TenantQuotaCard";
 import { useApp } from "@/components/providers";
 import { apiClient } from "@/lib/apiClient";
+import { getErrorMessage } from "@/lib/errors";
+import { isSuperAdmin, logout } from "@/lib/session";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -26,9 +29,23 @@ interface Website {
 }
 
 export default function DashboardPage() {
+  return (
+    <AuthGuard>
+      <DashboardContent />
+    </AuthGuard>
+  );
+}
+
+function DashboardContent() {
   const { theme, toggleTheme, lang, setLang, t } = useApp();
   const [websites, setWebsites] = useState<Website[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showAdminLink, setShowAdminLink] = useState(false);
+
+  // Role is only known in the browser, so this is resolved after mount.
+  useEffect(() => {
+    setShowAdminLink(isSuperAdmin());
+  }, []);
   
   // Modals state
   const [activeAuditReport, setActiveAuditReport] = useState<AuditReportData | null>(null);
@@ -65,8 +82,8 @@ export default function DashboardPage() {
       } else {
         setError("No audit report available yet for this website. Click '⚡ Run Audit' to start!");
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch audit report.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to fetch audit report."));
     }
   };
 
@@ -84,8 +101,8 @@ export default function DashboardPage() {
         setNewDomainUrl("");
         fetchWebsites();
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to add website.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to add website."));
     } finally {
       setLoading(false);
     }
@@ -102,8 +119,8 @@ export default function DashboardPage() {
       } else {
         setError("Verification pending. Please check DNS TXT or Meta tag.");
       }
-    } catch (err: any) {
-      setError(err.message || "Verification check failed.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Verification check failed."));
     }
   };
 
@@ -116,8 +133,8 @@ export default function DashboardPage() {
         setMessage(`Crawl completed! Audit Score: ${data.score}/100`);
         fetchLatestAudit(websiteId);
       }
-    } catch (err: any) {
-      setError(err.message || "Crawler service connection failed.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Crawler service connection failed."));
     }
   };
 
@@ -135,8 +152,8 @@ export default function DashboardPage() {
         setMessage(data.message || "BYOK API key encrypted with AES-256-GCM and saved!");
         setApiKeyValue("");
       }
-    } catch (err: any) {
-      setError(err.message || "API key service failed to connect.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "API key service failed to connect."));
     }
   };
 
@@ -164,15 +181,20 @@ export default function DashboardPage() {
           >
             {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
           </button>
-          <Link
-            href="/admin"
-            className="px-3 py-1.5 rounded-lg border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 transition"
+          {showAdminLink && (
+            <Link
+              href="/admin"
+              className="px-3 py-1.5 rounded-lg border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 transition"
+            >
+              🛡️ Admin
+            </Link>
+          )}
+          <button
+            onClick={logout}
+            className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-slate-400 hover:text-white"
           >
-            🛡️ Admin
-          </Link>
-          <Link href="/" className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-slate-400 hover:text-white">
             Logout
-          </Link>
+          </button>
         </div>
       </header>
 

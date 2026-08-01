@@ -1,12 +1,40 @@
+import { getToken, logout } from "./session";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5248/api/v1";
+
+/**
+ * Reads the body as JSON when there is one. Endpoints that answer 204 or send a
+ * non-JSON error page would otherwise fail here with an opaque SyntaxError.
+ */
+async function readBody(response: Response): Promise<unknown> {
+  if (response.status === 204) return null;
+
+  const text = await response.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
+}
+
+function extractErrorMessage(body: unknown, status: number): string {
+  if (body && typeof body === "object") {
+    const record = body as Record<string, unknown>;
+    const detail = record.detail ?? record.message ?? record.title;
+    if (typeof detail === "string" && detail.length > 0) return detail;
+  }
+  return `API request failed with status ${status}`;
+}
 
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  
-  const token = typeof window !== "undefined" ? localStorage.getItem("akiron_token") : null;
+
+  const token = getToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -18,10 +46,18 @@ export async function apiRequest<T>(
   }
 
   const response = await fetch(url, { ...options, headers });
-  const data = await response.json();
+
+  // An expired or forged token must end the session rather than surface as a
+  // generic error banner that leaves the stale token in place.
+  if (response.status === 401 && token) {
+    logout();
+    throw new Error("Your session has expired. Please sign in again.");
+  }
+
+  const data = await readBody(response);
 
   if (!response.ok) {
-    throw new Error(data?.detail || data?.message || `API request failed with status ${response.status}`);
+    throw new Error(extractErrorMessage(data, response.status));
   }
 
   return data as T;

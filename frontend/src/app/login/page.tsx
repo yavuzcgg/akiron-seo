@@ -2,6 +2,8 @@
 
 import { useApp } from "@/components/providers";
 import { apiClient } from "@/lib/apiClient";
+import { getErrorMessage } from "@/lib/errors";
+import { saveSession } from "@/lib/session";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -10,8 +12,8 @@ export default function LoginPage() {
   const { t } = useApp();
   const router = useRouter();
 
-  const [email, setEmail] = useState("admin@akironseo.com");
-  const [password, setPassword] = useState("Admin123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,9 +27,12 @@ export default function LoginPage() {
     try {
       const data = await apiClient.auth.login({ email, password });
 
-      if (data.success) {
-        if (data.accessToken) localStorage.setItem("akiron_token", data.accessToken);
-        if (data.tenantId) localStorage.setItem("akiron_tenant_id", data.tenantId);
+      if (data.success && data.accessToken) {
+        saveSession({
+          accessToken: data.accessToken,
+          tenantId: data.tenantId ?? "",
+          role: data.role ?? "Member",
+        });
 
         setMessage("Welcome back! Redirecting to dashboard...");
 
@@ -37,8 +42,8 @@ export default function LoginPage() {
       } else {
         setError(data.message || "Invalid email or password.");
       }
-    } catch (err: any) {
-      setError(err.message || "Could not connect to server. Please try again.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not connect to server. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -101,7 +106,7 @@ export default function LoginPage() {
         </form>
 
         <div className="text-center text-xs text-slate-400 pt-2 border-t border-[var(--border-color)]">
-          Don't have a workspace?{" "}
+          Don&apos;t have a workspace?{" "}
           <Link href="/register" className="text-blue-500 font-semibold hover:underline">
             {t("register")}
           </Link>

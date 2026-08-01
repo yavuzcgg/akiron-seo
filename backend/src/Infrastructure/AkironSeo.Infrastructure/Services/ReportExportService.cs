@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Encodings.Web;
 using AkironSeo.Application.Common.Interfaces;
 using AkironSeo.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -70,6 +71,15 @@ public class ReportExportService : IReportExportService
         string name, string domain, int score, string title, string metaDesc, string canonical,
         GeoAnalysisResultDto geoData, int goldCount, int keywordCount)
     {
+        // This document is served as text/html from the API origin. The website name is
+        // tenant input and the title/description/canonical are whatever the crawled page
+        // returned, so every one of them is encoded before it reaches the markup.
+        name = HtmlEncoder.Default.Encode(name);
+        domain = HtmlEncoder.Default.Encode(domain);
+        title = HtmlEncoder.Default.Encode(title);
+        metaDesc = HtmlEncoder.Default.Encode(metaDesc);
+        canonical = HtmlEncoder.Default.Encode(canonical);
+
         var sb = new StringBuilder();
 
         sb.AppendLine("<!DOCTYPE html>");
@@ -143,10 +153,10 @@ public class ReportExportService : IReportExportService
         {
             sb.AppendLine("    <div class=\"citation-card\">");
             sb.AppendLine("      <div style=\"display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;\">");
-            sb.AppendLine("        <strong style=\"font-size:14px;\">" + c.EngineName + "</strong>");
+            sb.AppendLine("        <strong style=\"font-size:14px;\">" + HtmlEncoder.Default.Encode(c.EngineName) + "</strong>");
             sb.AppendLine("        <span class=\"badge " + (c.IsMentioned ? "badge-success" : "badge-warn") + "\">" + (c.IsMentioned ? "✓ Cited" : "✕ Not Cited") + "</span>");
             sb.AppendLine("      </div>");
-            sb.AppendLine("      <p style=\"color:#cbd5e1; font-style:italic;\">\"" + c.SampleAiResponseSnippet + "\"</p>");
+            sb.AppendLine("      <p style=\"color:#cbd5e1; font-style:italic;\">\"" + HtmlEncoder.Default.Encode(c.SampleAiResponseSnippet) + "\"</p>");
             sb.AppendLine("    </div>");
         }
 

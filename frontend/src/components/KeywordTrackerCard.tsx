@@ -2,6 +2,7 @@
 
 import { apiClient, TrackedKeyword } from "@/lib/apiClient";
 import { useEffect, useState } from "react";
+import { getErrorMessage } from "@/lib/errors";
 
 interface ComponentProps {
   websiteId: string;
@@ -45,8 +46,8 @@ export default function KeywordTrackerCard({ websiteId, tenantId }: ComponentPro
         setNewKeywordText("");
         fetchKeywords();
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to add keyword.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to add keyword."));
     } finally {
       setLoading(false);
     }
@@ -58,8 +59,8 @@ export default function KeywordTrackerCard({ websiteId, tenantId }: ComponentPro
     try {
       await apiClient.keywords.checkRank(keywordId);
       fetchKeywords();
-    } catch (err: any) {
-      setError(err.message || "Failed to check rank position.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to check rank position."));
     } finally {
       setCheckingId(null);
     }
@@ -101,7 +102,7 @@ export default function KeywordTrackerCard({ websiteId, tenantId }: ComponentPro
 
       {keywords.length === 0 ? (
         <p className="text-xs text-slate-400 py-2">
-          No keywords tracked yet. Type a target keyword above and click "+ Track" to begin rank tracking!
+          No keywords tracked yet. Type a target keyword above and click &quot;+ Track&quot; to begin rank tracking!
         </p>
       ) : (
         <div className="space-y-2">

@@ -18,7 +18,17 @@ RUN dotnet publish "AkironSeo.API.csproj" -c Release -o /app/publish /p:UseAppHo
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
+
+# curl backs the container healthcheck; the base runtime image does not ship it.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 EXPOSE 5248
 ENV ASPNETCORE_URLS=http://+:5248
 COPY --from=build /app/publish .
+
+# APP_UID is the non-root user provided by the base image.
+USER $APP_UID
+
 ENTRYPOINT ["dotnet", "AkironSeo.API.dll"]

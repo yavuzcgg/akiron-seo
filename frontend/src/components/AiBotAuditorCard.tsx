@@ -2,6 +2,7 @@
 
 import { apiClient, RobotsTxtAudit } from "@/lib/apiClient";
 import { useState } from "react";
+import { getErrorMessage } from "@/lib/errors";
 
 interface CardProps {
   websiteId: string;
@@ -20,8 +21,8 @@ export default function AiBotAuditorCard({ websiteId, websiteName, tenantId }: C
     try {
       const data = await apiClient.websites.getRobotsTxtAudit(websiteId);
       setAudit(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to audit robots.txt.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to audit robots.txt."));
     } finally {
       setLoading(false);
     }

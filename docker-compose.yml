@@ -4,15 +4,17 @@ services:
     container_name: akironseo_postgres
     restart: always
     environment:
-      POSTGRES_USER: akiron_user
-      POSTGRES_PASSWORD: akiron_password
-      POSTGRES_DB: akironseo_db
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Not published to the host: only the backend needs to reach the database.
+    # Add a "ports" mapping locally when you want to attach a SQL client.
+    expose:
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U akiron_user -d akironseo_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -26,25 +28,37 @@ services:
     restart: always
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__DefaultConnection: "Host=postgres;Database=akironseo_db;Username=akiron_user;Password=akiron_password"
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      # Startup fails if either of these is missing or still a development placeholder.
+      Jwt__SecretKey: ${JWT_SECRET_KEY}
+      Security__MasterEncryptionKey: ${MASTER_ENCRYPTION_KEY}
+      Cors__AllowedOrigins__0: ${FRONTEND_ORIGIN}
     ports:
       - "5248:5248"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5248/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # Baked into the client bundle at build time; changing it requires a rebuild.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     container_name: akironseo_frontend
     restart: always
-    environment:
-      NEXT_PUBLIC_API_URL: "http://localhost:5248/api/v1"
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   postgres_data:

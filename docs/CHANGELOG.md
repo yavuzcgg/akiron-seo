@@ -4,6 +4,45 @@ All progress, phase updates, and development milestones for **Akiron SEO** are r
 
 ---
 
+## [Security Hardening & Migration Repair - Completed] - 2026-07-28
+
+### 🎯 Objective
+Close the authorization, secret-handling, and SSRF findings from the full-repository audit,
+and repair two migration defects that made every integration test fail and would have broken
+any fresh deployment.
+
+### 🔒 Security Fixes
+- [x] **Cross-tenant privilege escalation**: `/api/v1/admin/*` was `RequireAuthorization()` with no role check, so any authenticated tenant user could enumerate every tenant and change or disable their accounts. Added the `SuperAdminOnly` policy (`Security/AuthorizationPolicies.cs`) and gated the Admin link behind the role in the dashboard. Verified: a normal Owner now receives `403`.
+- [x] **Committed secrets**: removed `Jwt:SecretKey`, `Security:MasterEncryptionKey`, and the database password from the tracked `appsettings.json`. Development values moved to gitignored `appsettings.Development.json` (with a committed `.example`), deployments read environment variables from `.env` (with a committed `.env.example`). `SecretsValidator` aborts startup outside Development when a secret is missing, too short, or still an example value.
+- [x] **Default SuperAdmin in production**: `DbInitializer.SeedAsync` now takes `seedSuperAdmin`, which `Program.cs` sets only for Development. Removed the pre-filled `admin@akironseo.com` / `Admin123!` credentials from the login form.
+- [x] **SSRF**: added `OutboundUrlGuard`, which resolves the host and rejects loopback, RFC 1918, carrier-grade NAT, and link-local addresses (including the `169.254.169.254` cloud metadata endpoint). Applied to the crawler, the webhook dispatcher, and meta-tag ownership verification. Rejections surface as `400`.
+- [x] **DNS ownership verification returned `true` unconditionally**: replaced the stub with a real TXT lookup via `DnsClient` behind `IDnsLookupService`.
+- [x] **Stored XSS in the report exporter**: HTML-encoded the website name and the crawled title, meta description, canonical URL, and AI snippets, which were being concatenated into a document served as `text/html` from the API origin.
+- [x] **Login accepted deactivated users**: `User.IsActive` is now checked on both login and refresh.
+
+### 🐛 Defect Fixes
+- [x] **Missing migration**: `Website.WebhookUrl` existed on the entity with no migration, so the model had pending changes and every integration test failed at fixture setup. Added `AddWebsiteWebhookUrl`.
+- [x] **Broken jsonb migration**: `MigrateJsonToNativeJsonb` used bare `AlterColumn` for `text` → `jsonb`, which PostgreSQL rejects (`42804`). Rewrote it with explicit `USING` clauses that also map pre-existing blank values to each column's default shape. This migration had never run successfully against a fresh database.
+- [x] **Frontend Docker image could not build**: `next.config.ts` lacked `output: "standalone"` while the Dockerfile copied `.next/standalone`. Also moved `NEXT_PUBLIC_API_URL` to a build arg, since `NEXT_PUBLIC_*` is inlined at build time and had no effect as a runtime variable.
+
+### 🛠️ Infrastructure & Quality
+- [x] **Health endpoint** `GET /health` verifying database connectivity, wired to a backend container healthcheck so `frontend` waits for readiness rather than container start.
+- [x] **CORS ordering**: `UseCors` now precedes the exception handler so error responses carry CORS headers instead of failing opaquely in the browser.
+- [x] **Frontend session handling**: added `lib/session.ts` and `AuthGuard`, a real logout that clears the token, and 401 interception that ends the session and redirects to `/login`. The Logout control was previously a link to `/` that left the token in storage.
+- [x] **Backend container** runs as the non-root `$APP_UID`; Postgres is no longer published to the host.
+- [x] **Lint**: replaced all 18 `catch (err: any)` blocks with a typed `getErrorMessage` helper; ESLint errors dropped from 32 to 16.
+
+### ✅ Verification
+`dotnet test` 10/10 passing (was 0/10). `docker compose build` succeeds for both images and `docker compose up -d --wait` reports all three services healthy.
+
+### ⚠️ Known Remaining
+GSC analytics, keyword rank tracking, competitor gap analysis, and the ChatGPT/Claude GEO
+citations are still computed from formulas and hardcoded samples rather than live APIs, and
+the UI presents them as measurements. Labelling or gating them is the next task. The
+`react-hooks/set-state-in-effect` lint errors need the shared data-fetching hook refactor.
+
+---
+
 ## [Webhook Dispatcher, GSC Analytics & Production Docker Suite - Completed] - 2026-07-26
 
 ### 🎯 Objective

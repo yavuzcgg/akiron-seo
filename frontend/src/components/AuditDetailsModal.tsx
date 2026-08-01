@@ -2,6 +2,7 @@
 
 import { apiClient, AiSeoRecommendation, AuditReportData } from "@/lib/apiClient";
 import { useState } from "react";
+import { getErrorMessage } from "@/lib/errors";
 
 interface ModalProps {
   report: AuditReportData | null;
@@ -48,8 +49,8 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
     try {
       const data = await apiClient.websites.getAiSuggestions(report.websiteId);
       setAiAnalysis(data);
-    } catch (err: any) {
-      setErrorAi(err.message || "Failed to generate AI recommendations.");
+    } catch (err: unknown) {
+      setErrorAi(getErrorMessage(err, "Failed to generate AI recommendations."));
     } finally {
       setLoadingAi(false);
     }

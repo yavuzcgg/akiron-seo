@@ -9,11 +9,18 @@ namespace AkironSeo.Infrastructure.Persistence;
 
 public static class DbInitializer
 {
+    private const string DevelopmentSuperAdminEmail = "admin@akironseo.com";
+    private const string DevelopmentSuperAdminPassword = "Admin123!";
+
     /// <summary>
     /// Seeds the baseline data set. The schema itself is owned by EF Core migrations,
     /// which the host applies before calling this.
     /// </summary>
-    public static async Task SeedAsync(AkironDbContext context)
+    /// <param name="seedSuperAdmin">
+    /// Creates the well-known SuperAdmin account and HQ tenant. Its password is a
+    /// constant in this file, so callers must only enable it for local development.
+    /// </param>
+    public static async Task SeedAsync(AkironDbContext context, bool seedSuperAdmin = false)
     {
         // Seed Plans if empty
         if (!await context.Plans.IgnoreQueryFilters().AnyAsync())
@@ -30,13 +37,14 @@ public static class DbInitializer
         }
 
         // Seed SuperAdmin User & HQ Tenant if empty
-        if (!await context.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == "admin@akironseo.com"))
+        if (seedSuperAdmin &&
+            !await context.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == DevelopmentSuperAdminEmail))
         {
             var superAdminUser = new User
             {
                 Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
-                Email = "admin@akironseo.com",
-                PasswordHash = HashPassword("Admin123!"),
+                Email = DevelopmentSuperAdminEmail,
+                PasswordHash = HashPassword(DevelopmentSuperAdminPassword),
                 FullName = "Akiron SuperAdmin",
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow

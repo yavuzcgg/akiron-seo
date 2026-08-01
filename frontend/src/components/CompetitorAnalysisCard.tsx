@@ -2,6 +2,7 @@
 
 import { apiClient, CompetitorGapResult } from "@/lib/apiClient";
 import { useEffect, useState } from "react";
+import { getErrorMessage } from "@/lib/errors";
 
 interface ComponentProps {
   websiteId: string;
@@ -39,8 +40,8 @@ export default function CompetitorAnalysisCard({ websiteId, websiteName, tenantI
     try {
       const res = await apiClient.competitors.analyze(websiteId, competitorInput.trim());
       setCompetitorData(res);
-    } catch (err: any) {
-      setError(err.message || "Failed to analyze competitor.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to analyze competitor."));
     } finally {
       setLoading(false);
     }

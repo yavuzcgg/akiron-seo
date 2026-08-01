@@ -2,6 +2,7 @@
 
 import { apiClient, GeoAnalysisResult } from "@/lib/apiClient";
 import { useEffect, useState } from "react";
+import { getErrorMessage } from "@/lib/errors";
 
 interface ComponentProps {
   websiteId: string;
@@ -41,8 +42,8 @@ export default function GeoIntelligenceCard({ websiteId, websiteName, tenantId }
     try {
       const data = await apiClient.geo.analyzePrompt(websiteId, customPrompt.trim());
       setGeoData(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to analyze prompt.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to analyze prompt."));
     } finally {
       setLoading(false);
     }

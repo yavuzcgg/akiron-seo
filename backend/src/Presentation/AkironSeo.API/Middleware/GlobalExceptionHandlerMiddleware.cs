@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using AkironSeo.Application.Common.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AkironSeo.API.Middleware;
@@ -39,6 +40,8 @@ public class GlobalExceptionHandlerMiddleware
         {
             KeyNotFoundException => (int)HttpStatusCode.NotFound,
             UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
+            // The caller supplied a URL the server refuses to fetch — that is their input error.
+            UnsafeOutboundUrlException => (int)HttpStatusCode.BadRequest,
             InvalidOperationException => (int)HttpStatusCode.BadRequest,
             ArgumentException => (int)HttpStatusCode.BadRequest,
             _ => (int)HttpStatusCode.InternalServerError

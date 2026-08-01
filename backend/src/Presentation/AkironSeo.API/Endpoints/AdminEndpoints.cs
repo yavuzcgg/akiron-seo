@@ -11,7 +11,9 @@ public static class AdminEndpoints
 {
     public static void MapAdminEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/admin").RequireAuthorization();
+        // Every handler in this group calls IgnoreQueryFilters(), so the tenant isolation
+        // filter offers no protection here. The SuperAdmin policy is the only boundary.
+        var group = app.MapGroup("/api/v1/admin").RequireAuthorization(AuthorizationPolicies.SuperAdminOnly);
 
         group.MapGet("/tenants", async (IMediator mediator) =>
         {

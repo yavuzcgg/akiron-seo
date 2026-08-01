@@ -2,6 +2,7 @@
 
 import { AiContentPlan, apiClient } from "@/lib/apiClient";
 import { useEffect, useState } from "react";
+import { getErrorMessage } from "@/lib/errors";
 
 interface ModalProps {
   websiteId: string | null;
@@ -61,8 +62,8 @@ export default function AiContentWriterModal({
       });
       setGeneratedContent(result);
       fetchHistory();
-    } catch (err: any) {
-      setError(err.message || "Failed to generate AI content.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to generate AI content."));
     } finally {
       setLoading(false);
     }

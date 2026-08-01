@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using AkironSeo.Application.Common.Interfaces;
+using AkironSeo.Application.Common.Security;
 using AkironSeo.Domain.Entities.TenantScoped;
 using AkironSeo.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -48,10 +49,9 @@ public class WebCrawlerService : IWebCrawlerService
 
         try
         {
-            // 2. Perform HTTP Fetch
-            var targetUrl = website.DomainUrl.StartsWith("http")
-                ? website.DomainUrl
-                : $"https://{website.DomainUrl}";
+            // 2. Perform HTTP Fetch. The domain comes from tenant input, so it is screened
+            // against loopback/private/link-local ranges before the server connects.
+            var targetUrl = (await OutboundUrlGuard.EnsureSafeAsync(website.DomainUrl, cancellationToken)).ToString();
 
             var response = await _httpClient.GetAsync(targetUrl, cancellationToken);
             var html = await response.Content.ReadAsStringAsync(cancellationToken);

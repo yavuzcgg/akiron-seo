@@ -1,17 +1,22 @@
 using System.Text;
 using AkironSeo.API.Endpoints;
 using AkironSeo.API.Middleware;
+using AkironSeo.API.Security;
 using AkironSeo.Application.Common.Interfaces;
 using AkironSeo.Application.Websites.Queries;
 using AkironSeo.Infrastructure.Persistence;
 using AkironSeo.Infrastructure.Security;
 using AkironSeo.Infrastructure.Services;
+using DnsClient;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Refuse to boot with missing or development-placeholder secrets.
+builder.Configuration.ValidateSecrets(builder.Environment);
 
 // Configure Serilog Structured Logging
 Log.Logger = new LoggerConfiguration()
@@ -39,6 +44,8 @@ builder.Services.AddScoped<IAiContentWriterService, AiContentWriterService>();
 builder.Services.AddScoped<IReportExportService, ReportExportService>();
 builder.Services.AddScoped<INotificationDispatcherService, NotificationDispatcherService>();
 builder.Services.AddScoped<ISearchConsoleService, SearchConsoleService>();
+builder.Services.AddScoped<IDnsLookupService, DnsLookupService>();
+builder.Services.AddSingleton<ILookupClient>(_ => new LookupClient());
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
 // Register MediatR
@@ -79,7 +86,7 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAkironAuthorization();
 
 // Configure CORS for Next.js Frontend
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
@@ -100,7 +107,9 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// Register Global Exception Handling Middleware
+// CORS is registered ahead of the exception handler so that error responses still carry
+// the headers the browser needs to surface the real status code instead of an opaque failure.
+app.UseCors("FrontendCors");
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 app.UseSerilogRequestLogging();
 
@@ -110,10 +119,9 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AkironDbContext>();
     await db.Database.MigrateAsync();
-    await DbInitializer.SeedAsync(db);
+    await DbInitializer.SeedAsync(db, seedSuperAdmin: app.Environment.IsDevelopment());
 }
 
-app.UseCors("FrontendCors");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<TenantResolverMiddleware>();
@@ -122,6 +130,16 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+// Readiness probe for container orchestration. Verifies the database is reachable,
+// which is what "ready to serve traffic" actually means for this API.
+app.MapGet("/health", async (AkironDbContext db, CancellationToken cancellationToken) =>
+{
+    var canConnect = await db.Database.CanConnectAsync(cancellationToken);
+    return canConnect
+        ? Results.Ok(new { Status = "Healthy" })
+        : Results.Json(new { Status = "Unhealthy" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+}).AllowAnonymous();
 
 // ----------------------------------------------------
 // MAP MODULAR ENDPOINTS

@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using AkironSeo.Application.Common.Interfaces;
+using AkironSeo.Application.Common.Security;
 using Microsoft.Extensions.Logging;
 
 namespace AkironSeo.Infrastructure.Services;
@@ -29,7 +30,11 @@ public class NotificationDispatcherService : INotificationDispatcherService
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 cts.CancelAfter(TimeSpan.FromSeconds(3));
 
-                var response = await _httpClient.PostAsJsonAsync(webhookUrl, payload, cts.Token);
+                // Webhook targets are tenant-supplied, so they are screened the same way
+                // crawl targets are before the server posts to them.
+                var safeUrl = await OutboundUrlGuard.EnsureSafeAsync(webhookUrl, cts.Token);
+
+                var response = await _httpClient.PostAsJsonAsync(safeUrl, payload, cts.Token);
                 _logger.LogInformation("Webhook dispatched to {Url} with Status: {Status}", webhookUrl, response.StatusCode);
             }
             catch (Exception ex)
