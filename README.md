@@ -305,6 +305,7 @@ akiron-seo/
 Key reading: [`SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) ·
 [`DECISION_LOG.md`](docs/DECISION_LOG.md) (ADRs) ·
 [`DEV_NOTES.md`](docs/DEV_NOTES.md) (setup) ·
+[`MANUAL_TEST_GUIDE.md`](docs/MANUAL_TEST_GUIDE.md) (QA walkthrough) ·
 [`CHANGELOG.md`](docs/CHANGELOG.md)
 
 ---
