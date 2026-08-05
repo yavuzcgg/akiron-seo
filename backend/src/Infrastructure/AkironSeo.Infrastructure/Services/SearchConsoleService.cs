@@ -1,8 +1,17 @@
+using AkironSeo.Application.Common;
 using AkironSeo.Application.Common.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace AkironSeo.Infrastructure.Services;
 
+/// <summary>
+/// PLACEHOLDER. There is no Google Search Console integration yet — no OAuth flow and no
+/// Google API client exist in this solution. The figures below are derived arithmetically
+/// from the local audit score and keyword count purely so the dashboard has a shape to
+/// render, and every result is tagged <see cref="DataSources.Simulated"/> so the UI can
+/// label it. Replace this with a real Search Console query before treating any of it as
+/// a measurement.
+/// </summary>
 public class SearchConsoleService : ISearchConsoleService
 {
     private readonly IAkironDbContext _dbContext;
@@ -33,7 +42,7 @@ public class SearchConsoleService : ISearchConsoleService
 
         int score = audit?.OverallScore ?? 85;
 
-        // Calculate organic metrics derived from site performance & keyword coverage
+        // Synthetic figures — not organic search data. See the class summary.
         long baseImpressions = (long)(score * 350 + trackedKeywordsCount * 1250);
         long baseClicks = (long)(baseImpressions * 0.048);
         double ctr = baseImpressions > 0 ? (double)baseClicks / baseImpressions * 100 : 4.8;
@@ -47,7 +56,8 @@ public class SearchConsoleService : ISearchConsoleService
             AverageCtrPercentage: Math.Round(ctr, 2),
             AveragePosition: Math.Round(avgPos, 1),
             TopKeywordsCount: Math.Max(trackedKeywordsCount, 5),
-            AnalyzedAt: DateTime.UtcNow
+            AnalyzedAt: DateTime.UtcNow,
+            DataSource: DataSources.Simulated
         );
     }
 }

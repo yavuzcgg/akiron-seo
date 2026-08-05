@@ -1,3 +1,5 @@
+using AkironSeo.Application.Common;
+
 namespace AkironSeo.Application.Common.Interfaces;
 
 public record GscMetricsDto(
@@ -8,7 +10,9 @@ public record GscMetricsDto(
     double AverageCtrPercentage,
     double AveragePosition,
     int TopKeywordsCount,
-    DateTime AnalyzedAt
+    DateTime AnalyzedAt,
+    // No Google Search Console integration exists yet — see DataSources.
+    string DataSource = DataSources.Simulated
 );
 
 public interface ISearchConsoleService

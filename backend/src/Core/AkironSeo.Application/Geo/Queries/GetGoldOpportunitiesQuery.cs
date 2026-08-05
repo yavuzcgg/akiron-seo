@@ -38,8 +38,12 @@ public class GetGoldOpportunitiesQueryHandler : IRequestHandler<GetGoldOpportuni
 
         if (website == null) return new List<GoldOpportunityDto>();
 
+        // Scoped to the website, not just the tenant: without this every site in a
+        // multi-website tenant shows the same alerts, each stamped with the wrong domain.
         var notifications = await _dbContext.Notifications
-            .Where(n => n.TenantId == tenantId && n.Type == NotificationTypeEnum.GoldOpportunityAlert)
+            .Where(n => n.TenantId == tenantId
+                        && n.WebsiteId == request.WebsiteId
+                        && n.Type == NotificationTypeEnum.GoldOpportunityAlert)
             .OrderByDescending(n => n.CreatedAt)
             .Take(10)
             .ToListAsync(cancellationToken);

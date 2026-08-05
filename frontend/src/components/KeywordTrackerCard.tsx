@@ -1,6 +1,7 @@
 "use client";
 
-import { apiClient, TrackedKeyword } from "@/lib/apiClient";
+import DataSourceBadge from "@/components/DataSourceBadge";
+import { apiClient, DataSource, TrackedKeyword } from "@/lib/apiClient";
 import { useEffect, useState } from "react";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -15,6 +16,9 @@ export default function KeywordTrackerCard({ websiteId, tenantId }: ComponentPro
   const [loading, setLoading] = useState(false);
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Every keyword carries the same provenance, so the first one describes the card.
+  const rankDataSource: DataSource | undefined = keywords[0]?.rankDataSource;
 
   const fetchKeywords = async () => {
     try {
@@ -72,8 +76,13 @@ export default function KeywordTrackerCard({ websiteId, tenantId }: ComponentPro
         <div>
           <h4 className="text-sm font-bold text-white flex items-center gap-2">
             📈 Keyword Rank Tracker & Position Engine
+            <DataSourceBadge source={rankDataSource} />
           </h4>
-          <p className="text-[11px] text-slate-400">Track real-time search engine positioning and rank deltas.</p>
+          <p className="text-[11px] text-slate-400">
+            {rankDataSource && rankDataSource !== "Live"
+              ? "Placeholder positions — no SERP provider is connected yet, so these are not real rankings."
+              : "Search engine positioning and rank deltas."}
+          </p>
         </div>
 
         <form onSubmit={handleAddKeyword} className="flex items-center space-x-2">

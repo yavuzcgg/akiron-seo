@@ -9,8 +9,8 @@ question. Akiron SEO measures both, and turns the gaps into content work.
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000)](https://nextjs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1)](https://www.postgresql.org/)
-[![Tests](https://img.shields.io/badge/integration%20tests-10%2F10-success)](#testing)
-[![Status](https://img.shields.io/badge/status-active%20development-orange)]()
+[![CI](https://github.com/yavuzcgg/akiron-seo/actions/workflows/ci.yml/badge.svg)](https://github.com/yavuzcgg/akiron-seo/actions/workflows/ci.yml)
+[![Status](https://img.shields.io/badge/status-active%20development-orange)](#feature-status)
 
 > ### ⚠️ Active development — not production-ready
 >
@@ -161,7 +161,8 @@ docker compose up -d --wait
 ```
 
 Frontend on <http://localhost:3000>, API on <http://localhost:5248>,
-health probe at <http://localhost:5248/health>.
+health probe at <http://localhost:5248/health>. PostgreSQL is bound to the loopback
+interface only, so local tooling can reach it but the network cannot.
 
 > The API **refuses to start** outside Development if `Jwt__SecretKey` or
 > `Security__MasterEncryptionKey` is missing, too short, or still an example value.
@@ -228,9 +229,10 @@ SuperAdmin tenant panel.
 
 ## Feature status
 
-Honest accounting of what is wired to real logic and what is not. The simulated items
-produce plausible-looking numbers and are the current top priority to either replace or
-clearly label in the UI.
+Honest accounting of what is wired to real logic and what is not. Every API response
+carries a `dataSource` field (`Live` / `NotConfigured` / `Unavailable` / `Simulated`), and
+the dashboard renders a **DEMO DATA** badge for anything that is not a measurement — so a
+simulated figure is never presented as a real one.
 
 | Feature | Status | Notes |
 | --- | --- | --- |
@@ -241,15 +243,16 @@ clearly label in the UI.
 | SEO audit + crawler | ⚠️ Partial | Real HTTP fetch and weighted scoring, but **homepage only** — no sitemap or link following |
 | robots.txt AI-bot auditor | ✅ Real | Live fetch and parse |
 | AEO schema / `llms.txt` generator | ✅ Real | JSON-LD generation |
-| GEO citation tracking | ⚠️ Partial | Perplexity and Gemini adapters are real; **ChatGPT and Claude rows are fabricated** |
+| GEO citation tracking | ✅ Real | Perplexity and Gemini adapters make real API calls; OpenAI and Anthropic adapters not written yet |
 | AI content writer | ✅ Real | Requires a tenant Gemini key; falls back to canned text without one |
 | Domain ownership verification | ✅ Real | Meta-tag and DNS TXT, both verified live |
 | Executive HTML report | ✅ Real | Server-rendered, HTML-encoded; PDF is browser print |
-| Google Search Console analytics | ❌ Simulated | Computed from the audit score — **no Google API integration exists** |
-| Keyword rank tracking | ❌ Simulated | Hash-derived positions, no SERP provider |
-| Competitor SERP gap analysis | ❌ Simulated | Returns a hardcoded keyword set |
+| Google Search Console analytics | ❌ Simulated | Computed from the audit score — **no Google API integration exists**. Badged in the UI. |
+| Keyword rank tracking | ❌ Simulated | Hash-derived positions, no SERP provider. Badged in the UI. |
+| Competitor SERP gap analysis | ❌ Simulated | Returns a fixed keyword set. Badged in the UI. |
 | Background job runner | ❌ Missing | Cron schedules are computed but nothing executes them |
 | Billing / subscriptions | ❌ Missing | Manual B2B renewal only; no payment provider |
+| CI | ✅ Real | GitHub Actions: backend build + Testcontainers tests, frontend type-check + build, both Docker images |
 
 ---
 
@@ -307,18 +310,12 @@ Key reading: [`SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) ·
 
 ## Roadmap
 
-**Next up — product honesty.** Label every simulated metric in the UI or gate it behind a
-feature flag, remove the fabricated Gold Opportunity that currently raises a real
-notification, and stop returning a positive citation result when a tenant has configured no
-API key. Alongside it, two known defects: `/geo-analysis` returns 500 for a website with no
-tracked keywords, and the GEO cache is scoped to the tenant instead of the website, so a
-multi-site tenant sees cross-contaminated results.
-
-**Then — infrastructure.** GitHub Actions CI running the existing test suite and the
-frontend lint/build. A background job runner so the computed cron schedules actually fire.
-Wiring the quota ledger into the crawl, GEO, and AI flows, reading real limits from
-`Plan.LimitsJson` instead of hardcoded constants. Rate limiting on login and hashed refresh
-tokens at rest.
+**Next — a background job runner** so the computed cron schedules actually fire; today
+`TrackedKeyword.NextScheduledRun` is written and never read, and every analysis runs inline
+in the HTTP request. Alongside it, wiring the quota ledger into the crawl, GEO, and AI
+flows and reading real limits from `Plan.LimitsJson` instead of hardcoded constants — the
+ledger is implemented and tested but nothing calls it. Then rate limiting on login and
+hashed refresh tokens at rest.
 
 **Then — real integrations.** Google Search Console via OAuth first, since the API is free
 and it replaces the most misleading simulated feature. A SERP provider for genuine rank

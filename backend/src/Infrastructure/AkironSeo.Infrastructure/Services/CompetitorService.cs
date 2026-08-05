@@ -1,8 +1,15 @@
+using AkironSeo.Application.Common;
 using AkironSeo.Application.Common.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace AkironSeo.Infrastructure.Services;
 
+/// <summary>
+/// PLACEHOLDER gap analysis. No SERP provider is integrated, so the overlap score is
+/// hash-derived and the "missing keyword opportunities" are a fixed sample list returned
+/// for every tenant and competitor regardless of industry. Results are tagged
+/// <see cref="DataSources.Simulated"/> so the UI can label them.
+/// </summary>
 public class CompetitorService : ICompetitorService
 {
     private readonly IAkironDbContext _dbContext;

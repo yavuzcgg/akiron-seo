@@ -4,6 +4,35 @@ All progress, phase updates, and development milestones for **Akiron SEO** are r
 
 ---
 
+## [Data Provenance, GEO Correctness & CI - Completed] - 2026-08-05
+
+### 🎯 Objective
+Stop presenting synthetic output as measurement, remove the fabricated engine results
+entirely, fix two GEO defects found in the audit, and put the existing test suite behind
+continuous integration.
+
+### 🧭 Data Provenance
+- [x] **`DataSources` provenance model**: every analytics DTO now carries a data source — `Live`, `NotConfigured`, `Unavailable`, or `Simulated`. A single flag per result replaces guesswork, and when a real integration lands its service simply starts returning `Live`.
+- [x] **`DataSourceBadge` component**: renders **DEMO DATA**, **NOT CONFIGURED**, or **UNAVAILABLE** with an explanatory tooltip, and renders nothing for live data — so it is safe to place beside any metric. Applied to the GSC, keyword rank, competitor gap, and GEO cards.
+- [x] **Fabricated ChatGPT and Claude results deleted**: `AddSimulatedSampleEngineResults` invented citations for two engines that were never queried, including a deliberately-404 URL that manufactured a fake Gold Opportunity and raised a real user notification. Removed outright.
+- [x] **Adapter fallbacks no longer claim a citation**: a missing API key or a failed call returned `IsMentioned: true, Sentiment: Positive`, so a tenant who had configured nothing saw a perfect GEO score. They now report the reason and are excluded from the rate calculation instead of counting as evidence.
+- [x] **Placeholder services documented at the class level**: `SearchConsoleService`, `KeywordRankTrackerService`, and `CompetitorService` each state plainly that no integration exists and what would replace them.
+
+### 🐛 Defect Fixes
+- [x] **`/geo-analysis` returned 500 for any website without a tracked keyword**: `TrackedKeywordId` was set to `Guid.Empty`, violating the foreign key. The column is now nullable, since a brand-visibility run is not tied to a keyword.
+- [x] **Cross-website data contamination**: the 24-hour GEO cache and the Gold Opportunity list were scoped to the tenant only, so a multi-website tenant was served another site's results labelled with the requested site's name. Added `WebsiteId` to `GeoAnalysis` and `Notification`, scoped both queries, and added covering indexes.
+- [x] **Duplicate shadow column avoided**: the new `GeoAnalysis` → `TrackedKeyword` relationship names its inverse navigation explicitly; without it EF Core scaffolded a second `TrackedKeywordId1` column.
+
+### 🛠️ Quality
+- [x] **GEO adapters resolved through DI**: `GeoEngineService` was calling `new PerplexitySonarAdapter(...)` directly, bypassing the abstraction it defined. Adapters are now registered as a set and declare their own `AiProviderEnum`, so the service resolves each tenant key generically and a new engine is one registration line.
+- [x] **Silent failures now logged**: exception-swallowing `catch` blocks in the adapters, the GEO cache deserializer, and tenant key decryption were replaced with typed catches that log the cause.
+- [x] **GitHub Actions CI**: backend build plus the Testcontainers integration suite, frontend type-check and build, and both Docker images. Lint runs non-gating until the pre-existing `react-hooks` findings are refactored.
+
+### ✅ Verification
+`dotnet test` 10/10 passing. `npx tsc --noEmit` clean. `npm run build` succeeds.
+
+---
+
 ## [Security Hardening & Migration Repair - Completed] - 2026-07-28
 
 ### 🎯 Objective

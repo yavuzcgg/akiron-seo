@@ -1,6 +1,7 @@
 "use client";
 
-import { apiClient, CompetitorGapResult } from "@/lib/apiClient";
+import DataSourceBadge from "@/components/DataSourceBadge";
+import { apiClient, CompetitorGapResult, DataSource } from "@/lib/apiClient";
 import { useEffect, useState } from "react";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -15,6 +16,8 @@ export default function CompetitorAnalysisCard({ websiteId, websiteName, tenantI
   const [competitorInput, setCompetitorInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const gapDataSource: DataSource | undefined = competitorData?.dataSource;
 
   const fetchCompetitors = async () => {
     try {
@@ -53,8 +56,13 @@ export default function CompetitorAnalysisCard({ websiteId, websiteName, tenantI
         <div>
           <h4 className="text-sm font-bold text-white flex items-center gap-2">
             🎯 Competitor Intelligence & SERP Content Gap Engine
+            <DataSourceBadge source={gapDataSource} />
           </h4>
-          <p className="text-[11px] text-slate-400">Discover missing keywords where competitors rank on Google Page 1.</p>
+          <p className="text-[11px] text-slate-400">
+            {gapDataSource && gapDataSource !== "Live"
+              ? "Placeholder gap analysis — no SERP provider is connected yet, so these keywords are a fixed sample, not competitor research."
+              : "Discover missing keywords where competitors rank on Google Page 1."}
+          </p>
         </div>
 
         <form onSubmit={handleAnalyzeCompetitor} className="flex items-center space-x-2">

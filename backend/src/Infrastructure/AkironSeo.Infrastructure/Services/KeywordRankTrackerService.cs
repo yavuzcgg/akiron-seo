@@ -1,9 +1,17 @@
+using AkironSeo.Application.Common;
 using AkironSeo.Application.Common.Interfaces;
 using Cronos;
 using Microsoft.EntityFrameworkCore;
 
 namespace AkironSeo.Infrastructure.Services;
 
+/// <summary>
+/// PLACEHOLDER ranking. No SERP provider (DataForSEO, SerpApi, …) is integrated, so
+/// positions are derived from a hash of the domain and keyword. Note that .NET randomises
+/// string hash seeds per process, so these values also change on every restart. Results are
+/// tagged <see cref="DataSources.Simulated"/> so the UI can label them. Replace with a real
+/// SERP query before presenting positions as rankings.
+/// </summary>
 public class KeywordRankTrackerService : IKeywordRankTrackerService
 {
     private readonly IAkironDbContext _dbContext;

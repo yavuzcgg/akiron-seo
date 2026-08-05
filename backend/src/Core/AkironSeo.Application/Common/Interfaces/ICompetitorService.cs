@@ -1,3 +1,5 @@
+using AkironSeo.Application.Common;
+
 namespace AkironSeo.Application.Common.Interfaces;
 
 public record KeywordOpportunityDto(
@@ -14,7 +16,9 @@ public record CompetitorGapResultDto(
     string CompetitorDomain,
     int OverlapScore, // 0 - 100%
     List<KeywordOpportunityDto> MissingKeywordOpportunities,
-    DateTime AnalyzedAt
+    DateTime AnalyzedAt,
+    // No SERP provider is integrated yet, so the gap analysis is synthetic — see DataSources.
+    string DataSource = DataSources.Simulated
 );
 
 public interface ICompetitorService

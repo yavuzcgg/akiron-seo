@@ -1,5 +1,6 @@
 "use client";
 
+import DataSourceBadge from "@/components/DataSourceBadge";
 import { apiClient, GscMetrics } from "@/lib/apiClient";
 import { useEffect, useState } from "react";
 
@@ -35,14 +36,17 @@ export default function GscAnalyticsCard({ websiteId, websiteName }: ComponentPr
     <div className="p-6 rounded-2xl border border-blue-500/20 bg-blue-500/5 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-500/20 pb-3">
         <div>
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-400">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-400 flex items-center gap-2">
             GOOGLE SEARCH CONSOLE (GSC) ANALYTICS
+            <DataSourceBadge source={metrics.dataSource} />
           </span>
           <h3 className="text-lg font-extrabold text-white flex items-center gap-2 mt-0.5">
             📈 Organic Google Search Performance
           </h3>
           <p className="text-xs text-slate-400">
-            Real-time organic search clicks, impressions, CTR %, and avg position for {websiteName}.
+            {metrics.dataSource && metrics.dataSource !== "Live"
+              ? "Placeholder figures — Search Console is not connected yet, so these are generated locally and are not organic search data."
+              : `Organic search clicks, impressions, CTR %, and avg position for ${websiteName}.`}
           </p>
         </div>
 

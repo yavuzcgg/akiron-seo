@@ -1,17 +1,23 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using AkironSeo.Application.Common;
+using AkironSeo.Domain.Enums;
+using Microsoft.Extensions.Logging;
 
 namespace AkironSeo.Infrastructure.Services.GeoAdapters;
 
 public class PerplexitySonarAdapter : IGeoEngineAdapter
 {
     private readonly HttpClient _httpClient;
+    private readonly ILogger<PerplexitySonarAdapter> _logger;
 
     public string EngineName => "Perplexity";
+    public AiProviderEnum Provider => AiProviderEnum.Perplexity;
 
-    public PerplexitySonarAdapter(HttpClient httpClient)
+    public PerplexitySonarAdapter(HttpClient httpClient, ILogger<PerplexitySonarAdapter> logger)
     {
         _httpClient = httpClient;
+        _logger = logger;
     }
 
     public async Task<GeoAdapterCitation> QueryEngineAsync(string brandName, string domainUrl, string promptText, string apiKey, CancellationToken cancellationToken = default)
@@ -20,7 +26,9 @@ public class PerplexitySonarAdapter : IGeoEngineAdapter
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            return FallbackCitation(brandName, cleanDomain);
+            return NoResultCitation(
+                DataSources.NotConfigured,
+                $"No Perplexity API key is configured for this tenant, so {EngineName} was not queried.");
         }
 
         try
@@ -85,23 +93,31 @@ public class PerplexitySonarAdapter : IGeoEngineAdapter
                 );
             }
         }
-        catch
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
-            // API call failed, fallback
+            _logger.LogWarning(ex, "{Engine} query failed for {Domain}.", EngineName, cleanDomain);
         }
 
-        return FallbackCitation(brandName, cleanDomain);
+        return NoResultCitation(
+            DataSources.Unavailable,
+            $"{EngineName} could not be reached for this run.");
     }
 
-    private GeoAdapterCitation FallbackCitation(string brandName, string cleanDomain)
+    /// <summary>
+    /// Used when the engine was not queried or did not answer. Reports "not mentioned"
+    /// with the reason attached — never a fabricated positive citation, which would
+    /// inflate share of voice for a tenant that has configured nothing.
+    /// </summary>
+    private GeoAdapterCitation NoResultCitation(string dataSource, string reason)
     {
         return new GeoAdapterCitation(
             EngineName: EngineName,
-            IsMentioned: true,
-            Sentiment: "Positive",
-            CitationUrl: $"https://{cleanDomain}/products",
-            SampleResponseSnippet: $"Perplexity arama dizininde {brandName} ({cleanDomain}) doğrudan kaynak gösterilmiştir.",
-            Position: 1
+            IsMentioned: false,
+            Sentiment: "Unknown",
+            CitationUrl: string.Empty,
+            SampleResponseSnippet: reason,
+            Position: null,
+            DataSource: dataSource
         );
     }
 }

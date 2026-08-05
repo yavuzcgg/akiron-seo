@@ -117,6 +117,12 @@ export interface AeoSchemas {
   llmsFullTxtContent: string;
 }
 
+/**
+ * Where a reported metric came from. Mirrors the backend DataSources constants.
+ * Anything other than "Live" means the value is not a measurement.
+ */
+export type DataSource = "Live" | "NotConfigured" | "Unavailable" | "Simulated";
+
 export interface TrackedKeyword {
   id: string;
   websiteId: string;
@@ -130,6 +136,7 @@ export interface TrackedKeyword {
   isActive: boolean;
   lastCheckedAt: string | null;
   nextScheduledRun: string | null;
+  rankDataSource?: DataSource;
 }
 
 export interface AiEngineCitation {
@@ -141,6 +148,7 @@ export interface AiEngineCitation {
   mentionRatePercentage?: number;
   citationStatus?: string;
   isGoldOpportunity?: boolean;
+  dataSource?: DataSource;
 }
 
 export interface GeoAnalysisResult {
@@ -152,6 +160,8 @@ export interface GeoAnalysisResult {
   optimizationRecommendations: string[];
   analyzedAt: string;
   isCached?: boolean;
+  /** How many engines actually answered. Zero means nothing was measured. */
+  liveEngineCount?: number;
 }
 
 export interface GoldOpportunity {
@@ -200,6 +210,7 @@ export interface CompetitorGapResult {
   overlapScore: number;
   missingKeywordOpportunities: KeywordOpportunity[];
   analyzedAt: string;
+  dataSource?: DataSource;
 }
 
 export interface TenantQuotaStatus {
@@ -245,6 +256,7 @@ export interface GscMetrics {
   averagePosition: number;
   topKeywordsCount: number;
   analyzedAt: string;
+  dataSource?: DataSource;
 }
 
 export const apiClient = {

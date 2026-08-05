@@ -132,6 +132,7 @@ public class CitationVerificationService : ICitationVerificationService
         var existingNotification = await _dbContext.Notifications
             .FirstOrDefaultAsync(n =>
                 n.TenantId == tenantId &&
+                n.WebsiteId == websiteId &&
                 n.Type == NotificationTypeEnum.GoldOpportunityAlert &&
                 n.Message.Contains(missingPath) &&
                 n.CreatedAt > DateTime.UtcNow.AddDays(-1), cancellationToken);
@@ -141,6 +142,7 @@ public class CitationVerificationService : ICitationVerificationService
         var notification = new Notification
         {
             TenantId = tenantId,
+            WebsiteId = websiteId,
             Type = NotificationTypeEnum.GoldOpportunityAlert,
             Title = $"🌟 Gold GEO Opportunity: 404 Missing Page Cited by {engineName}",
             Message = $"{engineName} cited '{fullUrl}' for keyword '{keyword}', but this page returns 404. Create this page now using AI Content Writer to capture instant GEO traffic!",

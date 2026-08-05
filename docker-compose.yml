@@ -7,10 +7,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    # Not published to the host: only the backend needs to reach the database.
-    # Add a "ports" mapping locally when you want to attach a SQL client.
-    expose:
-      - "5432"
+    # Bound to the loopback interface only: reachable by local tooling (dotnet ef,
+    # dotnet run, a SQL client) but not exposed to the network.
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

@@ -7,6 +7,7 @@ using AkironSeo.Application.Websites.Queries;
 using AkironSeo.Infrastructure.Persistence;
 using AkironSeo.Infrastructure.Security;
 using AkironSeo.Infrastructure.Services;
+using AkironSeo.Infrastructure.Services.GeoAdapters;
 using DnsClient;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -36,6 +37,9 @@ builder.Services.AddScoped<IAiOptimizationService, GeminiAiService>();
 builder.Services.AddScoped<IRobotsTxtAuditorService, RobotsTxtAuditorService>();
 builder.Services.AddScoped<IAeoGeneratorService, AeoGeneratorService>();
 builder.Services.AddScoped<IKeywordRankTrackerService, KeywordRankTrackerService>();
+// GEO adapters are resolved as a set; adding a provider here is all a new engine needs.
+builder.Services.AddScoped<IGeoEngineAdapter, PerplexitySonarAdapter>();
+builder.Services.AddScoped<IGeoEngineAdapter, GeminiGroundingAdapter>();
 builder.Services.AddScoped<IGeoEngineService, GeoEngineService>();
 builder.Services.AddScoped<IQuotaLedgerService, QuotaLedgerService>();
 builder.Services.AddScoped<ICompetitorService, CompetitorService>();

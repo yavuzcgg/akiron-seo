@@ -103,7 +103,28 @@ public class AkironDbContext : DbContext, IAkironDbContext
         {
             entity.Property(e => e.CompetitorsJson).HasColumnType("jsonb");
             entity.Property(e => e.RawResponseJson).HasColumnType("jsonb");
+
+            // Brand-visibility runs are not tied to a keyword, so the relationship is optional.
+            // The inverse navigation must be named explicitly, otherwise EF treats this as a
+            // second relationship and shadows in a duplicate TrackedKeywordId1 column.
+            entity.HasOne(e => e.TrackedKeyword)
+                .WithMany(k => k.GeoAnalyses)
+                .HasForeignKey(e => e.TrackedKeywordId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Website)
+                .WithMany()
+                .HasForeignKey(e => e.WebsiteId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // The 24-hour cache lookup filters on these three columns.
+            entity.HasIndex(e => new { e.TenantId, e.WebsiteId, e.CreatedAt });
         });
+
+        // Gold Opportunity alerts are read per website.
+        modelBuilder.Entity<Notification>()
+            .HasIndex(n => new { n.TenantId, n.WebsiteId, n.Type, n.CreatedAt });
 
         // Apply Automatic Global Query Filters for IMultiTenant and ISoftDelete via generic helper
         var setQueryFilterMethod = typeof(AkironDbContext)

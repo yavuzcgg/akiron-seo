@@ -1,8 +1,14 @@
 "use client";
 
-import { apiClient, GeoAnalysisResult } from "@/lib/apiClient";
+import DataSourceBadge from "@/components/DataSourceBadge";
+import { apiClient, DataSource, GeoAnalysisResult } from "@/lib/apiClient";
 import { useEffect, useState } from "react";
 import { getErrorMessage } from "@/lib/errors";
+
+/** Absent dataSource means the API predates the field; treat it as live. */
+function isLive(source?: DataSource): boolean {
+  return source === undefined || source === "Live";
+}
 
 interface ComponentProps {
   websiteId: string;
@@ -85,7 +91,9 @@ export default function GeoIntelligenceCard({ websiteId, websiteName, tenantId }
             🤖 AI Share of Voice & Mention Rate Engine
           </h3>
           <p className="text-xs text-slate-400">
-            Multi-sample iteration testing for ChatGPT, Perplexity, Claude & Gemini citations on {websiteName}.
+            {geoData && (geoData.liveEngineCount ?? 0) === 0
+              ? "No engine could be queried. Add a Perplexity or Gemini API key under BYOK settings to start measuring citations."
+              : `Multi-sample iteration testing for Perplexity & Gemini citations on ${websiteName}.`}
           </p>
         </div>
 
@@ -161,7 +169,9 @@ export default function GeoIntelligenceCard({ websiteId, websiteName, tenantId }
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-sm text-white">{item.engineName}</span>
-                      {item.mentionRatePercentage !== undefined && (
+                      <DataSourceBadge source={item.dataSource} />
+                      {/* A mention rate is only meaningful for an engine that answered. */}
+                      {item.mentionRatePercentage !== undefined && isLive(item.dataSource) && (
                         <span className="text-[10px] font-mono text-purple-300 font-bold bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
                           {item.mentionRatePercentage}% mention
                         </span>
@@ -170,12 +180,18 @@ export default function GeoIntelligenceCard({ websiteId, websiteName, tenantId }
 
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-[10px] border ${
-                        item.isMentioned
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-bold"
-                          : "bg-rose-500/10 text-rose-400 border-rose-500/20 font-semibold"
+                        !isLive(item.dataSource)
+                          ? "bg-slate-500/10 text-slate-400 border-slate-500/20 font-semibold"
+                          : item.isMentioned
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-bold"
+                            : "bg-rose-500/10 text-rose-400 border-rose-500/20 font-semibold"
                       }`}
                     >
-                      {item.isMentioned ? "✓ Cited" : "✕ Not Cited"}
+                      {!isLive(item.dataSource)
+                        ? "— Not measured"
+                        : item.isMentioned
+                          ? "✓ Cited"
+                          : "✕ Not Cited"}
                     </span>
                   </div>
 

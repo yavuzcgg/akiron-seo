@@ -1,3 +1,5 @@
+using AkironSeo.Application.Common;
+
 namespace AkironSeo.Application.Common.Interfaces;
 
 public record TrackedKeywordDto(
@@ -12,7 +14,9 @@ public record TrackedKeywordDto(
     string? TargetUrl,
     bool IsActive,
     DateTime? LastCheckedAt,
-    DateTime? NextScheduledRun
+    DateTime? NextScheduledRun,
+    // No SERP provider is integrated yet, so positions are synthetic — see DataSources.
+    string RankDataSource = DataSources.Simulated
 );
 
 public interface IKeywordRankTrackerService
