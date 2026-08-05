@@ -231,37 +231,30 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                 </div>
               </div>
 
-              {/* Score Breakdown */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-bold uppercase text-slate-300 tracking-wider">Score Breakdown</h3>
-                <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] space-y-2">
-                  {[
-                    { label: "HTTP Status", max: 15, earned: report.statusCode >= 200 && report.statusCode < 300 ? 15 : 0 },
-                    { label: "Title Tag", max: 15, earned: report.title.length >= 30 && report.title.length <= 60 ? 15 : report.title.length >= 20 ? 10 : report.title.length > 0 ? 5 : 0 },
-                    { label: "Meta Description", max: 15, earned: report.metaDescription.length >= 120 && report.metaDescription.length <= 160 ? 15 : report.metaDescription.length >= 50 ? 10 : 5 },
-                    { label: "H1 Heading", max: 10, earned: (report.h1Tags?.length === 1) ? 10 : (report.h1Tags?.length ?? 0) > 1 ? 5 : 0 },
-                    { label: "Canonical URL", max: 10, earned: report.canonicalUrl ? 10 : 0 },
-                    { label: "OpenGraph Tags", max: 10, earned: 5 },
-                    { label: "Robots Meta", max: 10, earned: 10 },
-                    { label: "Title Length", max: 5, earned: report.title.length <= 65 ? 5 : 0 },
-                    { label: "Meta Length", max: 5, earned: report.metaDescription.length <= 165 ? 5 : 0 },
-                    { label: "Heading Hierarchy", max: 5, earned: (report.h1Tags?.length ?? 0) <= 1 ? 5 : 0 },
-                  ].map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-3">
-                      <span className="text-xs text-slate-400 w-36 shrink-0">{item.label}</span>
-                      <div className="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${item.earned >= item.max ? "bg-emerald-500" : item.earned > 0 ? "bg-amber-500" : "bg-rose-500"}`}
-                          style={{ width: `${(item.earned / item.max) * 100}%` }}
-                        />
+              {/* Score Breakdown — rendered from the crawler's own calculation, so these
+                  bars always sum to the overall score shown above. Older audits predate the
+                  stored breakdown; the section is hidden rather than reconstructed. */}
+              {report.scoreBreakdown && report.scoreBreakdown.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-bold uppercase text-slate-300 tracking-wider">Score Breakdown</h3>
+                  <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] space-y-2">
+                    {report.scoreBreakdown.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-3">
+                        <span className="text-xs text-slate-400 w-36 shrink-0">{item.label}</span>
+                        <div className="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${item.earnedPoints >= item.maxPoints ? "bg-emerald-500" : item.earnedPoints > 0 ? "bg-amber-500" : "bg-rose-500"}`}
+                            style={{ width: `${(item.earnedPoints / item.maxPoints) * 100}%` }}
+                          />
+                        </div>
+                        <span className={`text-xs font-mono w-12 text-right ${item.earnedPoints >= item.maxPoints ? "text-emerald-400" : item.earnedPoints > 0 ? "text-amber-400" : "text-rose-400"}`}>
+                          {item.earnedPoints}/{item.maxPoints}
+                        </span>
                       </div>
-                      <span className={`text-xs font-mono w-12 text-right ${item.earned >= item.max ? "text-emerald-400" : item.earned > 0 ? "text-amber-400" : "text-rose-400"}`}>
-                        {item.earned}/{item.max}
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 

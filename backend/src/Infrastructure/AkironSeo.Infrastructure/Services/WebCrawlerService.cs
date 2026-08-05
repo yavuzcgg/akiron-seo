@@ -72,9 +72,11 @@ public class WebCrawlerService : IWebCrawlerService
                 robotsMeta, (int)response.StatusCode, targetUrl);
 
             // 5. Calculate weighted score
-            int overallScore = CalculateWeightedScore(
+            var scoreBreakdown = CalculateScoreBreakdown(
                 title, metaDesc, canonicalUrl, h1Tags, ogTags,
                 robotsMeta, (int)response.StatusCode);
+
+            int overallScore = Math.Min(scoreBreakdown.Sum(c => c.EarnedPoints), 100);
 
             // 6. Create CrawlResult with rich data
             var crawlResult = new CrawlResult
@@ -87,7 +89,8 @@ public class WebCrawlerService : IWebCrawlerService
                 MetaDescription = metaDesc,
                 CanonicalUrl = canonicalUrl,
                 H1Json = JsonSerializer.Serialize(h1Tags),
-                IssuesJson = JsonSerializer.Serialize(issues)
+                IssuesJson = JsonSerializer.Serialize(issues),
+                ScoreBreakdownJson = JsonSerializer.Serialize(scoreBreakdown)
             };
             _dbContext.CrawlResults.Add(crawlResult);
 
@@ -149,53 +152,55 @@ public class WebCrawlerService : IWebCrawlerService
     // SEO Scoring Engine (100-point weighted system)
     // ────────────────────────────────────────────────────────────
 
-    private static int CalculateWeightedScore(
+    /// <summary>
+    /// Produces the per-component score contributions. The overall score is their sum, so
+    /// the two can never disagree — the client renders these rather than reimplementing the
+    /// rules, which is how the previous UI ended up reporting fixed values for the two
+    /// components it had no data for.
+    /// </summary>
+    private static List<ScoreComponent> CalculateScoreBreakdown(
         string title, string metaDesc, string canonicalUrl,
         List<string> h1Tags, Dictionary<string, string> ogTags,
         string robotsMeta, int statusCode)
     {
-        int score = 0;
-
-        // HTTP Status (15 pts)
-        if (statusCode >= 200 && statusCode < 300) score += 15;
-
-        // Title length: 30-60 chars ideal (15 pts)
-        if (title.Length >= 30 && title.Length <= 60) score += 15;
-        else if (title.Length >= 20 && title.Length <= 65) score += 10;
-        else if (title.Length > 0) score += 5;
-
-        // Meta description: 120-160 chars ideal (15 pts)
-        if (metaDesc.Length >= 120 && metaDesc.Length <= 160) score += 15;
-        else if (metaDesc.Length >= 50 && metaDesc.Length <= 165) score += 10;
-        else if (metaDesc.Length > 0 && metaDesc != "No meta description configured.") score += 5;
-
-        // H1 presence: exactly 1 H1 (10 pts)
-        if (h1Tags.Count == 1) score += 10;
-        else if (h1Tags.Count > 1) score += 5;
-
-        // Canonical URL present (10 pts)
-        if (!string.IsNullOrEmpty(canonicalUrl)) score += 10;
-
-        // OpenGraph tags: og:title + og:image (10 pts)
         bool hasOgTitle = ogTags.ContainsKey("og:title");
         bool hasOgImage = ogTags.ContainsKey("og:image");
-        if (hasOgTitle && hasOgImage) score += 10;
-        else if (hasOgTitle || hasOgImage) score += 5;
-
-        // Robots meta: not noindex (10 pts)
         bool isNoIndex = robotsMeta.Contains("noindex", StringComparison.OrdinalIgnoreCase);
-        if (!isNoIndex) score += 10;
+        bool hasDefaultMetaDesc = metaDesc == "No meta description configured.";
 
-        // Title not too long (5 pts)
-        if (title.Length <= 65) score += 5;
+        return
+        [
+            new ScoreComponent("HTTP Status", 15,
+                statusCode >= 200 && statusCode < 300 ? 15 : 0),
 
-        // Meta desc not too long (5 pts)
-        if (metaDesc.Length <= 165 || metaDesc == "No meta description configured.") score += 5;
+            new ScoreComponent("Title Tag", 15,
+                title.Length >= 30 && title.Length <= 60 ? 15
+                : title.Length >= 20 && title.Length <= 65 ? 10
+                : title.Length > 0 ? 5 : 0),
 
-        // No multiple H1s (5 pts)
-        if (h1Tags.Count <= 1) score += 5;
+            new ScoreComponent("Meta Description", 15,
+                metaDesc.Length >= 120 && metaDesc.Length <= 160 ? 15
+                : metaDesc.Length >= 50 && metaDesc.Length <= 165 ? 10
+                : metaDesc.Length > 0 && !hasDefaultMetaDesc ? 5 : 0),
 
-        return Math.Min(score, 100);
+            new ScoreComponent("H1 Heading", 10,
+                h1Tags.Count == 1 ? 10 : h1Tags.Count > 1 ? 5 : 0),
+
+            new ScoreComponent("Canonical URL", 10,
+                string.IsNullOrEmpty(canonicalUrl) ? 0 : 10),
+
+            new ScoreComponent("OpenGraph Tags", 10,
+                hasOgTitle && hasOgImage ? 10 : hasOgTitle || hasOgImage ? 5 : 0),
+
+            new ScoreComponent("Robots Meta", 10, isNoIndex ? 0 : 10),
+
+            new ScoreComponent("Title Length", 5, title.Length <= 65 ? 5 : 0),
+
+            new ScoreComponent("Meta Length", 5,
+                metaDesc.Length <= 165 || hasDefaultMetaDesc ? 5 : 0),
+
+            new ScoreComponent("Heading Hierarchy", 5, h1Tags.Count <= 1 ? 5 : 0)
+        ];
     }
 
     private static List<CrawlIssue> AnalyzePageIssues(
@@ -410,3 +415,6 @@ public class WebCrawlerService : IWebCrawlerService
 /// Serializable crawl issue record stored in CrawlResult.IssuesJson.
 /// </summary>
 public record CrawlIssue(string Code, string Severity, string Description, string Recommendation);
+
+/// <summary>One weighted contribution to the overall SEO score.</summary>
+public record ScoreComponent(string Label, int MaxPoints, int EarnedPoints);

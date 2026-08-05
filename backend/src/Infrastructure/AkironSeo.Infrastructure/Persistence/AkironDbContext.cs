@@ -91,6 +91,7 @@ public class AkironDbContext : DbContext, IAkironDbContext
         {
             entity.Property(e => e.H1Json).HasColumnType("jsonb");
             entity.Property(e => e.IssuesJson).HasColumnType("jsonb");
+            entity.Property(e => e.ScoreBreakdownJson).HasColumnType("jsonb");
             entity.Property(e => e.PageSpeedMetricsJson).HasColumnType("jsonb");
         });
 

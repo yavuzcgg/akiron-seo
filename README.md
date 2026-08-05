@@ -246,6 +246,7 @@ simulated figure is never presented as a real one.
 | GEO citation tracking | ✅ Real | Perplexity and Gemini adapters make real API calls; OpenAI and Anthropic adapters not written yet |
 | AI content writer | ✅ Real | Requires a tenant Gemini key; falls back to canned text without one |
 | Domain ownership verification | ✅ Real | Meta-tag and DNS TXT, both verified live |
+| Audit score breakdown | ✅ Real | Computed by the crawler and persisted, so the bars always sum to the overall score |
 | Executive HTML report | ✅ Real | Server-rendered, HTML-encoded; PDF is browser print |
 | Google Search Console analytics | ❌ Simulated | Computed from the audit score — **no Google API integration exists**. Badged in the UI. |
 | Keyword rank tracking | ❌ Simulated | Hash-derived positions, no SERP provider. Badged in the UI. |

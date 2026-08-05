@@ -1,7 +1,8 @@
 "use client";
 
 import { AeoSchemas, apiClient } from "@/lib/apiClient";
-import { useState } from "react";
+import { getErrorMessage } from "@/lib/errors";
+import { useEffect, useState } from "react";
 
 interface ModalProps {
   websiteId: string | null;
@@ -15,26 +16,41 @@ type TabKey = "schema" | "llmstxt" | "llmsfull";
 export default function AeoGeneratorModal({ websiteId, websiteName, tenantId, onClose }: ModalProps) {
   const [schemas, setSchemas] = useState<AeoSchemas | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [copiedType, setCopiedType] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("schema");
 
-  if (!websiteId) return null;
+  // This modal stays mounted while websiteId changes, so the fetch is keyed on it and the
+  // previous site's schemas are cleared first. Previously the request was fired from the
+  // render body behind a `!schemas` guard, which meant opening site B after site A showed
+  // site A's output. The cancelled flag stops a slow earlier response from overwriting a
+  // newer one.
+  useEffect(() => {
+    if (!websiteId) return;
 
-  const fetchSchemas = async () => {
+    let cancelled = false;
+    setSchemas(null);
+    setError(null);
     setLoading(true);
-    try {
-      const data = await apiClient.websites.getAeoSchemas(websiteId);
-      setSchemas(data);
-    } catch {
-      // Handle error
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  if (!schemas && !loading) {
-    fetchSchemas();
-  }
+    apiClient.websites
+      .getAeoSchemas(websiteId)
+      .then((data) => {
+        if (!cancelled) setSchemas(data);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(getErrorMessage(err, "Failed to generate AEO schemas."));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [websiteId]);
+
+  if (!websiteId) return null;
 
   const handleCopy = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
@@ -211,6 +227,8 @@ export default function AeoGeneratorModal({ websiteId, websiteName, tenantId, on
               </div>
             )}
           </div>
+        ) : error ? (
+          <div className="py-12 text-center text-sm text-rose-400 font-semibold">{error}</div>
         ) : null}
 
         {/* Footer */}

@@ -107,6 +107,14 @@ export interface AuditReportData {
   issues: SeoIssue[];
   robotsTxtAudit: RobotsTxtAudit | null;
   crawledAt: string;
+  /** Computed by the crawler and summing to overallScore. Null for older audits. */
+  scoreBreakdown: ScoreComponent[] | null;
+}
+
+export interface ScoreComponent {
+  label: string;
+  maxPoints: number;
+  earnedPoints: number;
 }
 
 export interface AeoSchemas {

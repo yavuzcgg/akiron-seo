@@ -7,6 +7,9 @@ namespace AkironSeo.Application.Websites.Queries;
 
 public record SeoIssueDto(string Code, string Severity, string Description, string Recommendation);
 
+/// <summary>One weighted contribution to the overall score, as computed during the crawl.</summary>
+public record ScoreComponentDto(string Label, int MaxPoints, int EarnedPoints);
+
 public record SeoAuditReportDto(
     Guid AuditId,
     Guid WebsiteId,
@@ -22,7 +25,9 @@ public record SeoAuditReportDto(
     string RobotsMeta,
     List<SeoIssueDto> Issues,
     RobotsTxtAuditDto? RobotsTxtAudit,
-    DateTime CrawledAt
+    DateTime CrawledAt,
+    // Empty for audits crawled before the breakdown was persisted.
+    List<ScoreComponentDto>? ScoreBreakdown = null
 );
 
 public record GetLatestWebsiteAuditQuery(Guid WebsiteId) : IRequest<SeoAuditReportDto?>;
@@ -101,6 +106,20 @@ public class GetLatestWebsiteAuditQueryHandler : IRequestHandler<GetLatestWebsit
             issues = GenerateLegacyIssues(title, metaDesc);
         }
 
+        // Deserialize the score breakdown captured at crawl time. Audits crawled before this
+        // was persisted have none, and the client hides the section rather than inventing one.
+        List<ScoreComponentDto>? scoreBreakdown = null;
+        if (!string.IsNullOrEmpty(crawlResult?.ScoreBreakdownJson) && crawlResult.ScoreBreakdownJson != "[]")
+        {
+            try
+            {
+                scoreBreakdown = JsonSerializer.Deserialize<List<ScoreComponentDto>>(
+                    crawlResult.ScoreBreakdownJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch (JsonException) { /* Leave null so the client omits the section */ }
+        }
+
         // Deserialize persisted robots.txt audit
         RobotsTxtAuditDto? robotsTxtAudit = null;
         if (!string.IsNullOrEmpty(audit.RobotsTxtAiStatusJson) && audit.RobotsTxtAiStatusJson != "{}")
@@ -129,7 +148,8 @@ public class GetLatestWebsiteAuditQueryHandler : IRequestHandler<GetLatestWebsit
             RobotsMeta: string.Empty,
             Issues: issues,
             RobotsTxtAudit: robotsTxtAudit,
-            CrawledAt: audit.CreatedAt
+            CrawledAt: audit.CreatedAt,
+            ScoreBreakdown: scoreBreakdown
         );
     }
 

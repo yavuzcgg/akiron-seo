@@ -28,8 +28,18 @@ continuous integration.
 - [x] **Silent failures now logged**: exception-swallowing `catch` blocks in the adapters, the GEO cache deserializer, and tenant key decryption were replaced with typed catches that log the cause.
 - [x] **GitHub Actions CI**: backend build plus the Testcontainers integration suite, frontend type-check and build, and both Docker images. Lint runs non-gating until the pre-existing `react-hooks` findings are refactored.
 
+### 📊 Score Breakdown Moved Server-Side
+- [x] **The audit modal's score breakdown was a client-side reimplementation** of the crawler's rules, and two of its ten components were hardcoded constants — every site scored exactly 5/10 on OpenGraph Tags and a perfect 10/10 on Robots Meta, because neither value is persisted on `CrawlResult` and the client had nothing to read. The bars could also disagree with the overall score displayed directly above them.
+- [x] `CalculateWeightedScore` is now `CalculateScoreBreakdown`, returning per-component contributions whose sum *is* the score. The breakdown is persisted to a new `CrawlResults.ScoreBreakdownJson` jsonb column and returned by the audit API; the client renders it and no longer computes anything. Audits crawled before this change have no stored breakdown, so the section is hidden rather than reconstructed.
+
+### 🐛 AEO Modal Fix
+- [x] **`AeoGeneratorModal` fired its fetch from the render body** behind a `!schemas` guard. The modal stays mounted across websites, so opening site B after site A displayed site A's schemas. Moved to an effect keyed on `websiteId` that clears prior state, with a cancellation flag so a slow earlier response cannot overwrite a newer one, plus a visible error state where failures were previously swallowed.
+
 ### ✅ Verification
-`dotnet test` 10/10 passing. `npx tsc --noEmit` clean. `npm run build` succeeds.
+`dotnet test` 10/10 passing. `npx tsc --noEmit` clean. `npm run build` succeeds. Verified
+against the running stack: crawling `example.com` returns a breakdown summing exactly to the
+reported score of 55, with OpenGraph 0/10 and Meta Description 0/15 — values the previous
+hardcoded UI would have reported as 5/10 and a non-zero score.
 
 ---
 
