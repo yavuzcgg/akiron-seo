@@ -4,6 +4,38 @@ All progress, phase updates, and development milestones for **Akiron SEO** are r
 
 ---
 
+## [Design System & UI Rework - Completed] - 2026-08-08
+
+### 🎯 Objective
+Replace the ad-hoc styling with a real design system so light mode works, the UI reads as
+professional rather than prototype, and the interface is keyboard-accessible. Guided by the
+`ui-ux-pro-max` design-intelligence skill (persisted to `frontend/design-system/akiron-seo/MASTER.md`).
+
+### 🎨 Foundation
+- [x] **CSS-token theming**: a full semantic palette (surfaces, text, borders, brand, status) defined once on `:root` (light) and `.dark`, mapped to Tailwind utilities via `@theme inline`. Every color now switches with the theme; nothing is hardcoded per-theme.
+- [x] **Light mode actually works**: the previous UI hardcoded `text-white` / `bg-slate-*` with zero `dark:` variants, so light mode was white-on-white and the toggle was decorative. All ~250 neutral color usages across pages and cards were migrated to tokens, with contrast held at WCAG AA.
+- [x] **Typography**: Fira Sans (UI) and Fira Code (data/code) self-hosted via `next/font`, replacing the system stack. No external request at runtime.
+- [x] **No-flash theme**: a pre-paint inline script applies the saved theme before hydration.
+- [x] **`animate-fadeIn`** — used in five components and never defined — is now a real keyframe, alongside `prefers-reduced-motion` support and a global visible focus ring.
+
+### 🧩 Shared Primitives
+- [x] **Accessible `Modal`**: Escape-to-close, backdrop-click, focus trap, focus restore, body scroll lock, and `role="dialog"` with a labelled title. The four hand-rolled modals (audit, AEO, AI writer, admin quota) — none of which had any keyboard handling — now share it.
+- [x] **Shared `Header`**: the logo + theme + language cluster was copy-pasted into three pages and had drifted; it is now one component, with `ThemeToggle`/`LangToggle`/`Logo` primitives.
+- [x] **Lucide icons replace emoji** across card headers, buttons, and modal tabs (the skill's top anti-pattern). Directional rank arrows and a few inline status glyphs are kept as text.
+
+### 🐛 Fixes Folded In
+- [x] **Dynamic Tailwind classes** in the AEO modal (`` `border-${tab.color}-500` ``, which Tailwind cannot extract and which had been patched with an inline style) replaced by a static, single-accent tab style.
+- [x] **Turkish leakage** in source (`AiContentWriterModal` labels, placeholders) translated to English per `AGENTS.md`.
+- [x] `<html lang>` now tracks the language toggle for screen readers.
+
+### ✅ Verification
+`npx tsc --noEmit` clean, `npm run build` succeeds. Lint errors are the pre-existing
+`react-hooks/set-state-in-effect` batch (the shared data-fetching hook refactor); the three
+new ones introduced in `Modal` were fixed with `useId`. The installed skill is vendored via
+`skills-lock.json` and gitignored like `node_modules`.
+
+---
+
 ## [Data Provenance, GEO Correctness & CI - Completed] - 2026-08-05
 
 ### 🎯 Objective

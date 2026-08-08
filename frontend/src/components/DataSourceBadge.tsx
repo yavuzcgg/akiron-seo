@@ -12,7 +12,7 @@ const LABELS: Record<Exclude<DataSource, "Live">, { text: string; title: string;
   NotConfigured: {
     text: "NOT CONFIGURED",
     title: "No API key is configured for this provider, so nothing was queried.",
-    className: "bg-slate-500/10 text-slate-400 border-slate-500/30",
+    className: "bg-slate-500/10 text-muted border-slate-500/30",
   },
   Unavailable: {
     text: "UNAVAILABLE",

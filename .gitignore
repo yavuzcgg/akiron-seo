@@ -29,3 +29,8 @@ yarn-error.log*
 Thumbs.db
 *.swp
 *.tmp
+
+# Installed AI skills — vendored content is restored from skills-lock.json
+# via `npx skills install`, so it is not committed (like node_modules).
+.agents/
+.claude/skills/

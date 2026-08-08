@@ -1,26 +1,145 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --bg-primary: #ffffff;
-    --text-primary: #0f172a;
-    --card-bg: #f8fafc;
-    --border-color: #e2e8f0;
-    --accent: #2563eb;
-  }
+/* ============================================================
+   Design tokens — Akiron SEO
+   Data-Dense Dashboard palette (ui-ux-pro-max: design-system/akiron-seo/MASTER.md).
+   Raw values live on :root (light) and .dark, so every token switches with the
+   theme class. @theme inline maps them to Tailwind color utilities, so
+   `bg-surface`, `text-muted`, `border-border` etc. are theme-aware everywhere.
+   ============================================================ */
 
-  .dark {
-    --bg-primary: #0f172a;
-    --text-primary: #f8fafc;
-    --card-bg: #1e293b;
-    --border-color: #334155;
-    --accent: #3b82f6;
-  }
+:root {
+  /* Surfaces */
+  --c-bg: #f8fafc;
+  --c-surface: #ffffff;
+  --c-elevated: #f1f5f9;
+
+  /* Text */
+  --c-foreground: #0f172a; /* body — 15:1 on --c-bg */
+  --c-muted: #475569;      /* secondary — 7:1 */
+  --c-subtle: #64748b;     /* tertiary — 4.6:1 */
+
+  /* Lines & brand */
+  --c-border: #e2e8f0;
+  --c-primary: #1e40af;
+  --c-primary-hover: #1d4ed8;
+  --c-on-primary: #ffffff;
+  --c-accent: #b45309;     /* amber-700 — 4.5:1 on white */
+
+  /* Status (text-safe on light surfaces) */
+  --c-success: #047857;
+  --c-warning: #b45309;
+  --c-danger: #dc2626;
+  --c-info: #1d4ed8;
+
+  --c-ring: #1e40af;
+
+  /* Non-color tokens */
+  --overlay: rgba(15, 23, 42, 0.45);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 28px rgba(15, 23, 42, 0.12);
+  --shadow-xl: 0 24px 48px rgba(15, 23, 42, 0.16);
+
+  /* Legacy aliases — kept so any not-yet-migrated component still themes. */
+  --bg-primary: var(--c-bg);
+  --text-primary: var(--c-foreground);
+  --card-bg: var(--c-surface);
+  --border-color: var(--c-border);
+  --accent: var(--c-primary);
+}
+
+.dark {
+  --c-bg: #0b1220;
+  --c-surface: #1e293b;
+  --c-elevated: #172033;
+
+  --c-foreground: #f1f5f9;
+  --c-muted: #94a3b8;
+  --c-subtle: #64748b;
+
+  --c-border: #334155;
+  --c-primary: #3b82f6;
+  --c-primary-hover: #60a5fa;
+  --c-on-primary: #ffffff;
+  --c-accent: #fbbf24;      /* amber-400 — pops on dark */
+
+  --c-success: #34d399;
+  --c-warning: #fbbf24;
+  --c-danger: #f87171;
+  --c-info: #60a5fa;
+
+  --c-ring: #60a5fa;
+
+  --overlay: rgba(2, 6, 20, 0.72);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.6);
+}
+
+@theme inline {
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-elevated: var(--c-elevated);
+  --color-foreground: var(--c-foreground);
+  --color-muted: var(--c-muted);
+  --color-subtle: var(--c-subtle);
+  --color-border: var(--c-border);
+  --color-primary: var(--c-primary);
+  --color-primary-hover: var(--c-primary-hover);
+  --color-on-primary: var(--c-on-primary);
+  --color-accent: var(--c-accent);
+  --color-success: var(--c-success);
+  --color-warning: var(--c-warning);
+  --color-danger: var(--c-danger);
+  --color-info: var(--c-info);
+  --color-ring: var(--c-ring);
+
+  /* next/font exposes these; fall back to system stacks. */
+  --font-sans: var(--font-fira-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-fira-code), ui-monospace, "SFMono-Regular", monospace;
 }
 
 body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background-color: var(--c-bg);
+  color: var(--c-foreground);
+  font-family: var(--font-sans);
   min-height: 100vh;
+}
+
+/* Consistent, visible keyboard focus everywhere (accessibility priority #1). */
+:focus-visible {
+  outline: 2px solid var(--c-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Referenced in five components; now actually defined. */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn {
+  animation: fadeIn 200ms ease-out both;
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-scaleIn {
+  animation: scaleIn 180ms ease-out both;
+}
+
+/* Honour the OS reduced-motion setting (accessibility priority #7). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

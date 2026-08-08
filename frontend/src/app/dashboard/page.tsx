@@ -3,6 +3,21 @@
 import AeoGeneratorModal from "@/components/AeoGeneratorModal";
 import AiBotAuditorCard from "@/components/AiBotAuditorCard";
 import AuthGuard from "@/components/AuthGuard";
+import Header from "@/components/Header";
+import {
+  BarChart3,
+  CheckCircle2,
+  FileCode2,
+  FileText,
+  Globe,
+  KeyRound,
+  ListChecks,
+  Lock,
+  LogOut,
+  PenLine,
+  Shield,
+  Zap,
+} from "lucide-react";
 import AiContentWriterModal from "@/components/AiContentWriterModal";
 import AuditDetailsModal from "@/components/AuditDetailsModal";
 import { AuditReportData } from "@/lib/apiClient";
@@ -37,7 +52,7 @@ export default function DashboardPage() {
 }
 
 function DashboardContent() {
-  const { theme, toggleTheme, lang, setLang, t } = useApp();
+  const { t } = useApp();
   const [websites, setWebsites] = useState<Website[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAdminLink, setShowAdminLink] = useState(false);
@@ -158,61 +173,41 @@ function DashboardContent() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-      {/* Top Navigation */}
-      <header className="flex flex-wrap items-center justify-between gap-4 py-3 border-b border-[var(--border-color)]">
-        <Link href="/" className="flex items-center space-x-2.5">
-          <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center font-extrabold text-white text-xl shadow-md">
-            A
-          </div>
-          <span className="font-extrabold text-xl tracking-tight">Akiron SEO Dashboard</span>
-        </Link>
-
-        <div className="flex items-center space-x-3 text-sm font-medium">
-          <button
-            onClick={() => setLang(lang === "en" ? "tr" : "en")}
-            className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] hover:opacity-80 transition"
+    <div className="mx-auto flex min-h-screen max-w-7xl flex-col justify-between space-y-6 p-4 sm:p-6">
+      <Header label="Akiron SEO Dashboard">
+        {showAdminLink && (
+          <Link
+            href="/admin"
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-primary/30 px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
           >
-            🌐 {lang.toUpperCase()}
-          </button>
-          <button
-            onClick={toggleTheme}
-            className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] hover:opacity-80 transition"
-          >
-            {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
-          </button>
-          {showAdminLink && (
-            <Link
-              href="/admin"
-              className="px-3 py-1.5 rounded-lg border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 transition"
-            >
-              🛡️ Admin
-            </Link>
-          )}
-          <button
-            onClick={logout}
-            className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-slate-400 hover:text-white"
-          >
-            Logout
-          </button>
-        </div>
-      </header>
+            <Shield size={15} aria-hidden />
+            Admin
+          </Link>
+        )}
+        <button
+          onClick={logout}
+          className="flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-semibold text-muted transition-colors hover:text-foreground"
+        >
+          <LogOut size={15} aria-hidden />
+          Logout
+        </button>
+      </Header>
 
       {/* Main Content Grid */}
       <main className="space-y-6">
         {/* Status Messages */}
         {message && (
-          <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-semibold flex items-center justify-between">
+          <div className="flex animate-fadeIn items-center justify-between rounded-xl border border-success/20 bg-success/10 p-4 text-sm font-semibold text-success">
             <span>{message}</span>
             {message.includes("Audit Score") && (
-              <span className="text-xs underline font-bold cursor-pointer" onClick={() => activeAuditReport && fetchLatestAudit(activeAuditReport.websiteId)}>
-                View Report Modal ↓
-              </span>
+              <button className="cursor-pointer text-xs font-bold underline" onClick={() => activeAuditReport && fetchLatestAudit(activeAuditReport.websiteId)}>
+                View Report ↓
+              </button>
             )}
           </div>
         )}
         {error && (
-          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-semibold">
+          <div className="animate-fadeIn rounded-xl border border-danger/20 bg-danger/10 p-4 text-sm font-semibold text-danger">
             {error}
           </div>
         )}
@@ -221,16 +216,18 @@ function DashboardContent() {
           {/* Column 1: Websites List & Verification */}
           <div className="lg:col-span-2 space-y-6">
             {/* Add Website Form */}
-            <div className="p-6 rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] space-y-4">
-              <h2 className="text-lg font-bold">🌐 Add New Website</h2>
-              <form onSubmit={handleAddWebsite} className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+            <div className="space-y-4 rounded-2xl border border-border bg-surface p-6">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
+                <Globe size={18} className="text-primary" aria-hidden /> Add New Website
+              </h2>
+              <form onSubmit={handleAddWebsite} className="grid grid-cols-1 gap-3 sm:grid-cols-5">
                 <input
                   type="text"
                   placeholder="Site Name (e.g. My Shop)"
                   value={newSiteName}
                   onChange={(e) => setNewSiteName(e.target.value)}
                   required
-                  className="sm:col-span-2 px-4 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] text-sm"
+                  className="rounded-lg border border-border bg-bg px-4 py-2 text-sm text-foreground placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-ring sm:col-span-2"
                 />
                 <input
                   type="text"
@@ -238,45 +235,47 @@ function DashboardContent() {
                   value={newDomainUrl}
                   onChange={(e) => setNewDomainUrl(e.target.value)}
                   required
-                  className="sm:col-span-2 px-4 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] text-sm"
+                  className="rounded-lg border border-border bg-bg px-4 py-2 text-sm text-foreground placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-ring sm:col-span-2"
                 />
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition text-sm disabled:opacity-50"
+                  className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-bold text-on-primary transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {loading ? "Adding..." : "+ Add Site"}
+                  {loading ? "Adding..." : "Add Site"}
                 </button>
               </form>
             </div>
 
             {/* Registered Websites Table */}
-            <div className="p-6 rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] space-y-4">
-              <h2 className="text-lg font-bold">📋 Registered Websites</h2>
+            <div className="space-y-4 rounded-2xl border border-border bg-surface p-6">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
+                <ListChecks size={18} className="text-primary" aria-hidden /> Registered Websites
+              </h2>
               {websites.length === 0 ? (
-                <p className="text-sm text-slate-400">No websites added yet. Add a website to start crawling!</p>
+                <p className="text-sm text-muted">No websites added yet. Add a website to start crawling!</p>
               ) : (
                 <div className="space-y-4">
                   {websites.map((site) => (
                     <div
                       key={site.id}
-                      className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] space-y-4"
+                      className="space-y-4 rounded-xl border border-border bg-bg p-4"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <h4 className="font-bold text-base">{site.name}</h4>
-                          <p className="text-xs text-slate-400">{site.domainUrl}</p>
+                          <h4 className="text-base font-bold text-foreground">{site.name}</h4>
+                          <p className="text-xs text-muted">{site.domainUrl}</p>
                         </div>
 
-                        <div className="flex items-center space-x-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {site.isVerified ? (
-                            <span className="px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-semibold">
-                              ✓ Verified
+                            <span className="flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
+                              <CheckCircle2 size={13} aria-hidden /> Verified
                             </span>
                           ) : (
                             <button
                               onClick={() => handleVerifyWebsite(site.id)}
-                              className="px-3 py-1 rounded-lg border border-amber-500/30 text-amber-400 text-xs font-semibold hover:bg-amber-500/10"
+                              className="cursor-pointer rounded-lg border border-warning/30 px-3 py-1 text-xs font-semibold text-warning transition-colors hover:bg-warning/10"
                             >
                               Verify Ownership
                             </button>
@@ -284,9 +283,9 @@ function DashboardContent() {
 
                           <button
                             onClick={() => fetchLatestAudit(site.id)}
-                            className="px-3 py-1 rounded-lg border border-blue-500/30 text-blue-400 text-xs font-semibold hover:bg-blue-500/10"
+                            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-primary/30 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
                           >
-                            📊 Audit Report
+                            <BarChart3 size={13} aria-hidden /> Audit Report
                           </button>
 
                           <button
@@ -304,30 +303,30 @@ function DashboardContent() {
                                   });
                               }
                             }}
-                            className="px-3 py-1 rounded-lg border border-emerald-500/30 text-emerald-300 text-xs font-semibold hover:bg-emerald-500/10"
+                            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1 text-xs font-semibold text-muted transition-colors hover:text-foreground"
                           >
-                            📄 Executive HTML
+                            <FileText size={13} aria-hidden /> Executive HTML
                           </button>
 
                           <button
                             onClick={() => setAeoModalSite({ id: site.id, name: site.name })}
-                            className="px-3 py-1 rounded-lg border border-purple-500/30 text-purple-400 text-xs font-semibold hover:bg-purple-500/10"
+                            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1 text-xs font-semibold text-muted transition-colors hover:text-foreground"
                           >
-                            🤖 AEO & Schemas
+                            <FileCode2 size={13} aria-hidden /> AEO & Schemas
                           </button>
 
                           <button
                             onClick={() => setAiWriterSite({ id: site.id, name: site.name })}
-                            className="px-3 py-1 rounded-lg border border-emerald-500/30 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/10"
+                            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1 text-xs font-semibold text-muted transition-colors hover:text-foreground"
                           >
-                            ✍️ AI Writer
+                            <PenLine size={13} aria-hidden /> AI Writer
                           </button>
 
                           <button
                             onClick={() => handleRunCrawl(site.id)}
-                            className="px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow"
+                            className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-3 py-1 text-xs font-bold text-on-primary transition-colors hover:bg-primary-hover"
                           >
-                            ⚡ Run Audit
+                            <Zap size={13} aria-hidden /> Run Audit
                           </button>
                         </div>
                       </div>
@@ -380,43 +379,45 @@ function DashboardContent() {
             <TenantQuotaCard />
 
             {/* BYOK API Key Settings */}
-            <div className="p-6 rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] space-y-4">
-              <h2 className="text-lg font-bold">🔐 BYOK (Bring Your Own Key)</h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Save your private LLM API keys encrypted with enterprise <strong>AES-256-GCM</strong>.
+            <div className="space-y-4 rounded-2xl border border-border bg-surface p-6">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
+                <KeyRound size={18} className="text-primary" aria-hidden /> BYOK (Bring Your Own Key)
+              </h2>
+              <p className="text-xs leading-relaxed text-muted">
+                Save your private LLM API keys, encrypted at rest with <strong className="text-foreground">AES-256-GCM</strong>.
               </p>
 
               <form onSubmit={handleSaveApiKey} className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">Provider</label>
+                  <label className="mb-1 block text-xs font-semibold text-muted">Provider</label>
                   <select
                     value={apiKeyProvider}
                     onChange={(e) => setApiKeyProvider(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] text-sm"
+                    className="w-full cursor-pointer rounded-lg border border-border bg-bg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="3">Google Gemini</option>
-                    <option value="1">OpenAI (ChatGPT)</option>
                     <option value="2">Perplexity AI</option>
+                    <option value="1">OpenAI (not yet used)</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">API Key</label>
+                  <label className="mb-1 block text-xs font-semibold text-muted">API Key</label>
                   <input
                     type="password"
                     placeholder="AIzaSy••••••••••••••••"
                     value={apiKeyValue}
                     onChange={(e) => setApiKeyValue(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] text-sm font-mono"
+                    className="w-full rounded-lg border border-border bg-bg px-3 py-2 font-mono text-sm text-foreground placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-2.5 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition text-sm shadow"
+                  className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-sm font-bold text-on-primary transition-colors hover:bg-primary-hover"
                 >
-                  🔒 Encrypt & Save Key
+                  <Lock size={15} aria-hidden /> Encrypt & Save Key
                 </button>
               </form>
             </div>
@@ -447,7 +448,7 @@ function DashboardContent() {
       />
 
       {/* Footer */}
-      <footer className="py-4 border-t border-[var(--border-color)] text-center text-xs text-slate-500">
+      <footer className="border-t border-border py-4 text-center text-xs text-subtle">
         {t("rightsReserved")}
       </footer>
     </div>

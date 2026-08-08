@@ -37,7 +37,7 @@ export default function AuthGuard({ children, requireSuperAdmin = false }: AuthG
 
   if (!allowed) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-sm text-slate-400">
+      <div className="min-h-screen flex items-center justify-center text-sm text-muted">
         Checking your session…
       </div>
     );

@@ -1,8 +1,10 @@
 "use client";
 
+import Modal from "@/components/ui/Modal";
 import { apiClient, AiSeoRecommendation, AuditReportData } from "@/lib/apiClient";
-import { useState } from "react";
 import { getErrorMessage } from "@/lib/errors";
+import { AlertTriangle, BarChart3, Bot, FileText, Search, Sparkles, Zap } from "lucide-react";
+import { useState } from "react";
 
 interface ModalProps {
   report: AuditReportData | null;
@@ -56,48 +58,46 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] shadow-2xl p-6 sm:p-8 space-y-5">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-4">
-          <div>
-            <span className="text-xs uppercase tracking-wider text-blue-400 font-bold">SEO Audit Report</span>
-            <h2 className="text-2xl font-extrabold text-white mt-1">{report.websiteName}</h2>
-            <p className="text-xs text-slate-400">{report.domainUrl} • Crawled {new Date(report.crawledAt).toLocaleString()}</p>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                const token = localStorage.getItem("akiron_token");
-                const url = apiClient.reports.getExecutiveReportUrl(report.websiteId);
-                const win = window.open(url, "_blank");
-                if (win && token) {
-                  // Fetch and render HTML with auth header
-                  fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-                    .then((res) => res.text())
-                    .then((html) => {
-                      win.document.open();
-                      win.document.write(html);
-                      win.document.close();
-                    });
-                }
-              }}
-              className="px-3.5 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 font-bold text-xs transition border border-blue-500/30 flex items-center gap-1.5"
-            >
-              📄 Executive Report
-            </button>
+  const openExecutiveReport = () => {
+    const token = localStorage.getItem("akiron_token");
+    const url = apiClient.reports.getExecutiveReportUrl(report.websiteId);
+    const win = window.open(url, "_blank");
+    if (win && token) {
+      fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+        .then((res) => res.text())
+        .then((html) => {
+          win.document.open();
+          win.document.write(html);
+          win.document.close();
+        });
+    }
+  };
 
-            <button
-              onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
-            >
-              ✕
-            </button>
-          </div>
+  return (
+    <Modal
+      onClose={onClose}
+      title={report.websiteName}
+      subtitle={`${report.domainUrl} • Crawled ${new Date(report.crawledAt).toLocaleString()}`}
+      icon={<Search size={18} aria-hidden />}
+      maxWidthClass="max-w-4xl"
+      footer={
+        <div className="flex w-full items-center justify-between">
+          <button
+            onClick={openExecutiveReport}
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3.5 py-1.5 text-xs font-bold text-muted transition-colors hover:text-foreground"
+          >
+            <FileText size={14} aria-hidden /> Executive Report
+          </button>
+          <button
+            onClick={onClose}
+            className="cursor-pointer rounded-lg bg-elevated px-5 py-2 text-xs font-bold text-foreground transition-colors hover:opacity-80"
+          >
+            Close
+          </button>
         </div>
+      }
+    >
+      <div className="space-y-5">
 
         {/* Score Overview Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -107,50 +107,53 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
             <span className="text-[10px] font-bold">{getScoreLabel(report.overallScore)}</span>
           </div>
 
-          <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] flex flex-col items-center justify-center text-center">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase">HTTP</span>
+          <div className="p-4 rounded-xl border border-border bg-bg flex flex-col items-center justify-center text-center">
+            <span className="text-[10px] font-semibold text-muted uppercase">HTTP</span>
             <div className="flex items-center gap-1.5 my-0.5">
               <span className={`w-2 h-2 rounded-full ${report.statusCode === 200 ? "bg-emerald-500" : "bg-rose-500"}`}></span>
-              <span className="text-lg font-bold text-white">{report.statusCode}</span>
+              <span className="text-lg font-bold text-foreground">{report.statusCode}</span>
             </div>
-            <span className="text-[10px] text-slate-400">{report.statusCode === 200 ? "OK" : "Error"}</span>
+            <span className="text-[10px] text-muted">{report.statusCode === 200 ? "OK" : "Error"}</span>
           </div>
 
-          <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] flex flex-col items-center justify-center text-center">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase">Issues</span>
+          <div className="p-4 rounded-xl border border-border bg-bg flex flex-col items-center justify-center text-center">
+            <span className="text-[10px] font-semibold text-muted uppercase">Issues</span>
             <span className="text-lg font-bold text-amber-400 my-0.5">{report.issues.length}</span>
-            <span className="text-[10px] text-slate-400">
+            <span className="text-[10px] text-muted">
               {criticalCount > 0 && <span className="text-rose-400">{criticalCount} critical</span>}
               {criticalCount > 0 && warningCount > 0 && " · "}
               {warningCount > 0 && <span className="text-amber-400">{warningCount} warn</span>}
             </span>
           </div>
 
-          <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] flex flex-col items-center justify-center text-center">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase">AI Bots</span>
+          <div className="p-4 rounded-xl border border-border bg-bg flex flex-col items-center justify-center text-center">
+            <span className="text-[10px] font-semibold text-muted uppercase">AI Bots</span>
             <span className="text-lg font-bold text-purple-400 my-0.5">
               {report.robotsTxtAudit ? report.robotsTxtAudit.botStatuses.filter(b => b.status === "Allowed").length : "—"}
             </span>
-            <span className="text-[10px] text-slate-400">Allowed</span>
+            <span className="text-[10px] text-muted">Allowed</span>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-[var(--border-color)] gap-1 text-xs font-bold">
-          {(["overview", "issues", "robots", "ai"] as const).map((tab) => (
+        <div className="flex gap-1 border-b border-border text-xs font-bold">
+          {([
+            { key: "overview", label: "Overview", Icon: BarChart3 },
+            { key: "issues", label: `Issues (${report.issues.length})`, Icon: AlertTriangle },
+            { key: "robots", label: "AI Bots", Icon: Bot },
+            { key: "ai", label: "AI Engine", Icon: Sparkles },
+          ] as const).map(({ key, label, Icon }) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2.5 transition border-b-2 rounded-t-lg ${
-                activeTab === tab
-                  ? "border-blue-500 text-blue-400 bg-blue-500/5"
-                  : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`flex cursor-pointer items-center gap-1.5 rounded-t-lg border-b-2 px-4 py-2.5 transition-colors ${
+                activeTab === key
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted hover:text-foreground"
               }`}
             >
-              {tab === "overview" && "📊 Overview"}
-              {tab === "issues" && `⚠️ Issues (${report.issues.length})`}
-              {tab === "robots" && "🤖 AI Bots"}
-              {tab === "ai" && "✨ AI Engine"}
+              <Icon size={14} aria-hidden />
+              {label}
             </button>
           ))}
         </div>
@@ -163,9 +166,9 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
             <div className="space-y-4">
               {/* Extracted Meta Tags */}
               <div className="space-y-3">
-                <h3 className="text-sm font-bold uppercase text-slate-300 tracking-wider">Extracted Meta Tags</h3>
+                <h3 className="text-sm font-bold uppercase text-foreground tracking-wider">Extracted Meta Tags</h3>
                 
-                <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] space-y-3">
+                <div className="p-4 rounded-xl border border-border bg-bg space-y-3">
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1">
                       <span className="font-semibold text-blue-400">&lt;title&gt; Tag</span>
@@ -173,7 +176,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                         {report.title.length} chars
                       </span>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-black/40 text-sm font-mono text-slate-200 border border-slate-800">
+                    <div className="p-2.5 rounded-lg bg-black/40 text-sm font-mono text-foreground border border-border">
                       {report.title}
                     </div>
                   </div>
@@ -185,7 +188,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                         {report.metaDescription.length} chars
                       </span>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-black/40 text-sm font-mono text-slate-200 border border-slate-800">
+                    <div className="p-2.5 rounded-lg bg-black/40 text-sm font-mono text-foreground border border-border">
                       {report.metaDescription}
                     </div>
                   </div>
@@ -194,8 +197,8 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
 
               {/* H1 Tags */}
               <div className="space-y-2">
-                <h3 className="text-sm font-bold uppercase text-slate-300 tracking-wider">H1 Headings</h3>
-                <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)]">
+                <h3 className="text-sm font-bold uppercase text-foreground tracking-wider">H1 Headings</h3>
+                <div className="p-4 rounded-xl border border-border bg-bg">
                   {report.h1Tags && report.h1Tags.length > 0 ? (
                     <div className="space-y-2">
                       {report.h1Tags.map((h1, idx) => (
@@ -203,7 +206,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${report.h1Tags.length === 1 ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"}`}>
                             H1#{idx + 1}
                           </span>
-                          <span className="text-sm text-slate-200 font-mono">{h1}</span>
+                          <span className="text-sm text-foreground font-mono">{h1}</span>
                         </div>
                       ))}
                       {report.h1Tags.length > 1 && (
@@ -218,12 +221,12 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
 
               {/* Canonical URL */}
               <div className="space-y-2">
-                <h3 className="text-sm font-bold uppercase text-slate-300 tracking-wider">Canonical URL</h3>
-                <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)]">
+                <h3 className="text-sm font-bold uppercase text-foreground tracking-wider">Canonical URL</h3>
+                <div className="p-4 rounded-xl border border-border bg-bg">
                   {report.canonicalUrl ? (
                     <div className="flex items-center gap-2">
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400">✓</span>
-                      <code className="text-sm text-slate-200 font-mono">{report.canonicalUrl}</code>
+                      <code className="text-sm text-foreground font-mono">{report.canonicalUrl}</code>
                     </div>
                   ) : (
                     <p className="text-xs text-amber-400">⚠ No canonical URL specified. Consider adding &lt;link rel=&quot;canonical&quot;&gt; to prevent duplicate content.</p>
@@ -236,12 +239,12 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                   stored breakdown; the section is hidden rather than reconstructed. */}
               {report.scoreBreakdown && report.scoreBreakdown.length > 0 && (
                 <div className="space-y-2">
-                  <h3 className="text-sm font-bold uppercase text-slate-300 tracking-wider">Score Breakdown</h3>
-                  <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] space-y-2">
+                  <h3 className="text-sm font-bold uppercase text-foreground tracking-wider">Score Breakdown</h3>
+                  <div className="p-4 rounded-xl border border-border bg-bg space-y-2">
                     {report.scoreBreakdown.map((item, idx) => (
                       <div key={idx} className="flex items-center gap-3">
-                        <span className="text-xs text-slate-400 w-36 shrink-0">{item.label}</span>
-                        <div className="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden">
+                        <span className="text-xs text-muted w-36 shrink-0">{item.label}</span>
+                        <div className="flex-1 h-2 rounded-full bg-elevated overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all ${item.earnedPoints >= item.maxPoints ? "bg-emerald-500" : item.earnedPoints > 0 ? "bg-amber-500" : "bg-rose-500"}`}
                             style={{ width: `${(item.earnedPoints / item.maxPoints) * 100}%` }}
@@ -276,11 +279,11 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                       <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide border ${getSeverityStyle(issue.severity)}`}>
                         {issue.severity}
                       </span>
-                      <code className="text-[10px] text-slate-500 font-mono">{issue.code}</code>
+                      <code className="text-[10px] text-subtle font-mono">{issue.code}</code>
                     </div>
-                    <p className="text-sm font-semibold text-slate-200">{issue.description}</p>
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      💡 <strong className="text-amber-300">Fix:</strong> {issue.recommendation}
+                    <p className="text-sm font-semibold text-foreground">{issue.description}</p>
+                    <p className="text-xs text-foreground leading-relaxed">
+      <strong className="text-foreground">Fix:</strong> {issue.recommendation}
                     </p>
                   </div>
                 ))
@@ -297,21 +300,21 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                     <span className={`px-2 py-1 rounded-full font-bold ${report.robotsTxtAudit.hasRobotsTxt ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"}`}>
                       {report.robotsTxtAudit.hasRobotsTxt ? "✓ robots.txt Found" : "✕ No robots.txt"}
                     </span>
-                    <code className="text-slate-400">{report.robotsTxtAudit.domainUrl}/robots.txt</code>
+                    <code className="text-muted">{report.robotsTxtAudit.domainUrl}/robots.txt</code>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {report.robotsTxtAudit.botStatuses.map((bot, idx) => (
                       <div
                         key={idx}
-                        className="p-3.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] flex items-center justify-between gap-3"
+                        className="p-3.5 rounded-xl border border-border bg-bg flex items-center justify-between gap-3"
                       >
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-sm text-slate-200">{bot.botName}</span>
-                            <span className="text-[10px] font-mono text-slate-500">({bot.userAgent})</span>
+                            <span className="font-bold text-sm text-foreground">{bot.botName}</span>
+                            <span className="text-[10px] font-mono text-subtle">({bot.userAgent})</span>
                           </div>
-                          <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">{bot.description}</p>
+                          <p className="text-[11px] text-muted mt-0.5 leading-tight">{bot.description}</p>
                         </div>
 
                         <span
@@ -320,7 +323,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                               ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                               : bot.status === "Disallowed"
                               ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                              : "bg-slate-500/10 text-slate-400 border border-slate-500/20"
+                              : "bg-slate-500/10 text-muted border border-slate-500/20"
                           }`}
                         >
                           {bot.status === "Allowed" ? "✓ Allowed" : bot.status === "Disallowed" ? "✕ Blocked" : "⚪ Default"}
@@ -330,7 +333,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                   </div>
                 </>
               ) : (
-                <div className="p-6 text-center text-slate-400 text-sm">
+                <div className="p-6 text-center text-muted text-sm">
                   No robots.txt audit data available. Run a new audit to capture AI bot status.
                 </div>
               )}
@@ -342,48 +345,49 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
             <div className="p-5 rounded-xl border border-blue-500/20 bg-blue-500/5 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-bold text-blue-400 flex items-center gap-1.5">
-                    🤖 Live AI Optimization Engine (BYOK Powered)
+                  <h4 className="flex items-center gap-1.5 text-sm font-bold text-primary">
+                    <Sparkles size={15} aria-hidden /> Live AI Optimization Engine (BYOK)
                   </h4>
-                  <p className="text-xs text-slate-400">Generate high-converting Title & Meta Descriptions using your saved Gemini key.</p>
+                  <p className="text-xs text-muted">Generate Title &amp; Meta Descriptions using your saved Gemini key.</p>
                 </div>
-                
+
                 <button
                   onClick={handleGenerateAiSuggestions}
                   disabled={loadingAi}
-                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition disabled:opacity-50 shadow-md"
+                  className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-on-primary transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {loadingAi ? "Analyzing with Gemini..." : "⚡ Generate AI Fixes"}
+                  <Zap size={14} aria-hidden />
+                  {loadingAi ? "Analyzing…" : "Generate AI Fixes"}
                 </button>
               </div>
 
               {errorAi && (
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
+                <div className="rounded-lg border border-danger/20 bg-danger/10 p-3 text-xs font-semibold text-danger">
                   {errorAi}
                 </div>
               )}
 
               {aiAnalysis && (
-                <div className="p-4 rounded-xl bg-black/70 border border-blue-500/30 text-xs space-y-3 text-slate-200">
+                <div className="space-y-3 rounded-xl border border-border bg-surface p-4 text-xs text-foreground">
                   <div>
-                    <span className="text-slate-400 font-semibold block mb-1">🎯 Optimized Title:</span>
-                    <div className="p-2.5 rounded-lg bg-blue-950/40 border border-blue-800/50 text-blue-300 font-bold text-sm">
+                    <span className="mb-1 block font-semibold text-muted">Optimized Title</span>
+                    <div className="rounded-lg border border-border bg-bg p-2.5 text-sm font-bold text-primary">
                       {aiAnalysis.optimizedTitle}
                     </div>
                   </div>
 
                   <div>
-                    <span className="text-slate-400 font-semibold block mb-1">📝 Optimized Meta Description:</span>
-                    <div className="p-2.5 rounded-lg bg-blue-950/40 border border-blue-800/50 text-slate-200 text-xs leading-relaxed">
+                    <span className="mb-1 block font-semibold text-muted">Optimized Meta Description</span>
+                    <div className="rounded-lg border border-border bg-bg p-2.5 text-xs leading-relaxed text-foreground">
                       {aiAnalysis.optimizedMetaDescription}
                     </div>
                   </div>
 
                   <div>
-                    <span className="text-slate-400 font-semibold block mb-1">🔑 Target Keywords:</span>
+                    <span className="mb-1 block font-semibold text-muted">Target Keywords</span>
                     <div className="flex flex-wrap gap-1.5">
                       {aiAnalysis.targetKeywords.map((kw, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[11px] font-mono border border-blue-500/30">
+                        <span key={i} className="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[11px] text-primary">
                           #{kw}
                         </span>
                       ))}
@@ -392,8 +396,8 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
 
                   {aiAnalysis.actionableTips.length > 0 && (
                     <div>
-                      <span className="text-slate-400 font-semibold block mb-1">💡 Actionable Improvements:</span>
-                      <ul className="list-disc pl-4 space-y-1 text-slate-300">
+                      <span className="mb-1 block font-semibold text-muted">Actionable Improvements</span>
+                      <ul className="list-disc space-y-1 pl-4 text-foreground">
                         {aiAnalysis.actionableTips.map((tip, i) => (
                           <li key={i}>{tip}</li>
                         ))}
@@ -405,18 +409,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
             </div>
           )}
         </div>
-
-        {/* Close Button */}
-        <div className="flex justify-end pt-2 border-t border-[var(--border-color)]">
-          <button
-            onClick={onClose}
-            className="px-5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition"
-          >
-            Close Report
-          </button>
-        </div>
-
       </div>
-    </div>
+    </Modal>
   );
 }

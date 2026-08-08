@@ -2,6 +2,7 @@
 
 import DataSourceBadge from "@/components/DataSourceBadge";
 import { apiClient, CompetitorGapResult, DataSource } from "@/lib/apiClient";
+import { Target, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -51,14 +52,14 @@ export default function CompetitorAnalysisCard({ websiteId, websiteName, tenantI
   };
 
   return (
-    <div className="p-5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-color)] pb-3">
+    <div className="p-5 rounded-xl border border-border bg-bg space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
         <div>
-          <h4 className="text-sm font-bold text-white flex items-center gap-2">
-            🎯 Competitor Intelligence & SERP Content Gap Engine
+          <h4 className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <Target size={16} className="text-primary" aria-hidden /> Competitor Intelligence &amp; Gap
             <DataSourceBadge source={gapDataSource} />
           </h4>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-muted">
             {gapDataSource && gapDataSource !== "Live"
               ? "Placeholder gap analysis — no SERP provider is connected yet, so these keywords are a fixed sample, not competitor research."
               : "Discover missing keywords where competitors rank on Google Page 1."}
@@ -71,14 +72,14 @@ export default function CompetitorAnalysisCard({ websiteId, websiteName, tenantI
             placeholder="Competitor (e.g. yamaha-motor.com.tr)"
             value={competitorInput}
             onChange={(e) => setCompetitorInput(e.target.value)}
-            className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] text-xs font-medium focus:outline-none focus:ring-1 focus:ring-amber-500"
+            className="px-3 py-1.5 rounded-lg border border-border bg-surface text-xs font-medium focus:outline-none focus:ring-1 focus:ring-amber-500"
           />
           <button
             type="submit"
             disabled={loading}
-            className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition disabled:opacity-50"
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-on-primary transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading ? "Analyzing..." : "⚡ Gap Analysis"}
+            <Zap size={13} aria-hidden /> {loading ? "Analyzing…" : "Gap Analysis"}
           </button>
         </form>
       </div>
@@ -91,8 +92,8 @@ export default function CompetitorAnalysisCard({ websiteId, websiteName, tenantI
 
       {competitorData && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 rounded-lg bg-[var(--card-bg)] border border-[var(--border-color)]">
-            <span className="text-xs font-bold text-slate-300">
+          <div className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border">
+            <span className="text-xs font-bold text-foreground">
               {competitorData.yourDomain} vs <span className="text-amber-400">{competitorData.competitorDomain}</span>
             </span>
             <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-xs font-extrabold border border-amber-500/20">
@@ -100,18 +101,18 @@ export default function CompetitorAnalysisCard({ websiteId, websiteName, tenantI
             </span>
           </div>
 
-          <h5 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Top Keyword Gap Opportunities</h5>
+          <h5 className="text-xs font-bold text-foreground uppercase tracking-wider">Top Keyword Gap Opportunities</h5>
 
           <div className="space-y-2">
             {competitorData.missingKeywordOpportunities.map((item, i) => (
               <div
                 key={i}
-                className="p-3 rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] flex flex-wrap items-center justify-between gap-2 text-xs"
+                className="p-3 rounded-lg border border-border bg-surface flex flex-wrap items-center justify-between gap-2 text-xs"
               >
                 <div>
-                  <span className="font-bold text-slate-200">{item.keyword}</span>
-                  <div className="text-[10px] text-slate-400 mt-0.5">
-                    Est. Search Volume: <strong className="text-white">{item.estimatedSearchVolume.toLocaleString()} / mo</strong>
+                  <span className="font-bold text-foreground">{item.keyword}</span>
+                  <div className="text-[10px] text-muted mt-0.5">
+                    Est. Search Volume: <strong className="text-foreground">{item.estimatedSearchVolume.toLocaleString()} / mo</strong>
                   </div>
                 </div>
 

@@ -134,6 +134,7 @@ before any connection is opened.
 | **Logging** | Serilog structured logging · RFC 7807 problem details |
 | **DNS** | DnsClient (TXT-record domain ownership verification) |
 | **Frontend** | Next.js 16 App Router · React 19 · TypeScript 5 (strict) · Tailwind CSS 4 |
+| **Design system** | CSS-token theming (working light + dark) · Lucide icons · Fira Sans/Code via `next/font` |
 | **Testing** | xUnit · Testcontainers for PostgreSQL |
 | **Infra** | Docker multi-stage builds · Docker Compose |
 
@@ -221,9 +222,11 @@ This seed is skipped in every other environment, so a deployment has no default 
   ![Admin panel](docs/screenshots/admin-panel.png)
 -->
 
-_Screenshots are not committed yet._ The UI is a dark-themed Next.js dashboard covering
-website management, SEO audits, GEO citation tracking, an AI content writer, and a
-SuperAdmin tenant panel.
+_Screenshots are not committed yet._ The UI is a Next.js dashboard with working light and
+dark themes, covering website management, SEO audits, GEO citation tracking, an AI content
+writer, and a SuperAdmin tenant panel. It is built on a small design system — CSS-token
+theming, a shared accessible modal, Lucide icons, and Fira Sans/Code — documented in
+[`design-system/akiron-seo/MASTER.md`](frontend/design-system/akiron-seo/MASTER.md).
 
 ---
 

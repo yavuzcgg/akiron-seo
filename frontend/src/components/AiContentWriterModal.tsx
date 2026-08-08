@@ -1,8 +1,10 @@
 "use client";
 
+import Modal from "@/components/ui/Modal";
 import { AiContentPlan, apiClient } from "@/lib/apiClient";
-import { useEffect, useState } from "react";
 import { getErrorMessage } from "@/lib/errors";
+import { Check, Copy, Download, History, PenLine, Sparkles, Zap } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface ModalProps {
   websiteId: string | null;
@@ -14,7 +16,6 @@ interface ModalProps {
 
 export default function AiContentWriterModal({
   websiteId,
-  websiteName,
   initialKeyword = "",
   initialPath = "",
   onClose,
@@ -87,186 +88,163 @@ export default function AiContentWriterModal({
     URL.revokeObjectURL(url);
   };
 
+  const tabClass = (active: boolean) =>
+    `flex cursor-pointer items-center gap-1.5 rounded-t-lg border-b-2 px-4 py-2 transition-colors ${
+      active ? "border-primary text-primary" : "border-transparent text-muted hover:text-foreground"
+    }`;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] shadow-2xl p-6 sm:p-8 space-y-5">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-4">
-          <div>
-            <span className="text-xs uppercase tracking-wider text-blue-400 font-bold">Princeton GEO Optimization Engine</span>
-            <h2 className="text-2xl font-extrabold text-white mt-1">✍️ AI Content Writer & Gold Fixer</h2>
-            <p className="text-xs text-slate-400">Generate high-fact-density articles tailored for AI search citations (Perplexity, ChatGPT, Claude, Gemini).</p>
-          </div>
-          
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
-          >
-            ✕
-          </button>
-        </div>
+    <Modal
+      onClose={onClose}
+      title="AI Content Writer & Gold Fixer"
+      subtitle="High-fact-density articles tailored for AI search citations"
+      icon={<Sparkles size={18} aria-hidden />}
+      maxWidthClass="max-w-4xl"
+      footer={
+        <button
+          onClick={onClose}
+          className="cursor-pointer rounded-lg bg-elevated px-5 py-2 text-xs font-bold text-foreground transition-colors hover:opacity-80"
+        >
+          Close
+        </button>
+      }
+    >
+      {/* Tabs */}
+      <div className="mb-5 flex gap-2 border-b border-border text-xs font-bold">
+        <button onClick={() => setActiveTab("editor")} className={tabClass(activeTab === "editor")}>
+          <PenLine size={14} aria-hidden /> Generator & Editor
+        </button>
+        <button onClick={() => setActiveTab("history")} className={tabClass(activeTab === "history")}>
+          <History size={14} aria-hidden /> History ({history.length})
+        </button>
+      </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex border-b border-[var(--border-color)] gap-2 text-xs font-bold">
-          <button
-            onClick={() => setActiveTab("editor")}
-            className={`px-4 py-2 transition border-b-2 rounded-t-lg ${
-              activeTab === "editor"
-                ? "border-blue-500 text-blue-400 bg-blue-500/5"
-                : "border-transparent text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            ⚡ Content Generator & Editor
-          </button>
-          <button
-            onClick={() => setActiveTab("history")}
-            className={`px-4 py-2 transition border-b-2 rounded-t-lg ${
-              activeTab === "history"
-                ? "border-purple-500 text-purple-400 bg-purple-500/5"
-                : "border-transparent text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            📚 Generated History ({history.length})
-          </button>
-        </div>
-
-        {activeTab === "editor" ? (
-          <div className="space-y-5">
-            {/* Input Form */}
-            <form onSubmit={handleGenerate} className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Hedef Anahtar Kelime (Keyword)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. motosiklet kaskı çeşitleri"
-                    value={keyword}
-                    onChange={(e) => setKeyword(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] text-xs font-medium text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Gold Opportunity 404 Path (Opsiyonel)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. /missing-catalog-page"
-                    value={missingPath}
-                    onChange={(e) => setMissingPath(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] text-xs font-mono text-amber-300 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-1">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs transition disabled:opacity-50 shadow-md flex items-center gap-2"
-                >
-                  {loading ? "Generating GEO Article with AI..." : "⚡ Generate Princeton GEO Article"}
-                </button>
-              </div>
-            </form>
-
-            {error && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
-                {error}
-              </div>
-            )}
-
-            {/* Generated Article Editor & Previewer */}
-            {generatedContent && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-300">Generated Markdown Article</span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                      {generatedContent.tokensSpent} tokens spent
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleCopy}
-                      className="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 text-xs font-semibold transition"
-                    >
-                      {copied ? "✓ Copied!" : "📋 Copy Markdown"}
-                    </button>
-
-                    <button
-                      onClick={handleDownload}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 text-xs font-semibold transition"
-                    >
-                      📥 Download .md
-                    </button>
-                  </div>
-                </div>
-
-                <textarea
-                  value={generatedContent.generatedMarkdownContent}
-                  onChange={(e) => setGeneratedContent({ ...generatedContent, generatedMarkdownContent: e.target.value })}
-                  rows={14}
-                  className="w-full p-4 rounded-xl bg-black/70 border border-slate-800 font-mono text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 leading-relaxed"
+      {activeTab === "editor" ? (
+        <div className="space-y-5">
+          {/* Input Form */}
+          <form onSubmit={handleGenerate} className="space-y-3 rounded-xl border border-border bg-bg p-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-foreground">Target Keyword</label>
+                <input
+                  type="text"
+                  placeholder="e.g. lightweight touring helmets"
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  required
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-xs font-medium text-foreground placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {history.length === 0 ? (
-              <p className="py-8 text-center text-xs text-slate-400">No content plans generated yet for this site.</p>
-            ) : (
-              <div className="space-y-2.5">
-                {history.map((plan) => (
-                  <div
-                    key={plan.id}
-                    className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] flex items-center justify-between gap-3 text-xs"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-white text-sm">{plan.targetKeyword}</span>
-                        <span className="text-[10px] font-mono text-slate-400">
-                          {new Date(plan.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-1 line-clamp-1">
-                        {plan.generatedMarkdownContent.substring(0, 120)}...
-                      </p>
-                    </div>
 
-                    <button
-                      onClick={() => {
-                        setGeneratedContent(plan);
-                        setKeyword(plan.targetKeyword);
-                        setActiveTab("editor");
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 font-semibold text-xs transition whitespace-nowrap"
-                    >
-                      View & Edit
-                    </button>
-                  </div>
-                ))}
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-foreground">
+                  Gold Opportunity 404 Path (optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. /missing-catalog-page"
+                  value={missingPath}
+                  onChange={(e) => setMissingPath(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-accent focus:outline-none focus:ring-2 focus:ring-ring"
+                />
               </div>
-            )}
-          </div>
-        )}
+            </div>
 
-        {/* Footer */}
-        <div className="flex justify-end pt-2 border-t border-[var(--border-color)]">
-          <button
-            onClick={onClose}
-            className="px-5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition"
-          >
-            Close
-          </button>
+            <div className="flex justify-end pt-1">
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex cursor-pointer items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-xs font-extrabold text-on-primary transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Zap size={14} aria-hidden />
+                {loading ? "Generating…" : "Generate GEO Article"}
+              </button>
+            </div>
+          </form>
+
+          {error && (
+            <div className="rounded-lg border border-danger/20 bg-danger/10 p-3 text-xs font-semibold text-danger">
+              {error}
+            </div>
+          )}
+
+          {/* Generated Article Editor */}
+          {generatedContent && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-foreground">Generated Markdown Article</span>
+                  <span className="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] text-primary">
+                    {generatedContent.tokensSpent} tokens spent
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCopy}
+                    className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/25"
+                  >
+                    {copied ? <Check size={13} aria-hidden /> : <Copy size={13} aria-hidden />}
+                    {copied ? "Copied!" : "Copy Markdown"}
+                  </button>
+
+                  <button
+                    onClick={handleDownload}
+                    className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:text-foreground"
+                  >
+                    <Download size={13} aria-hidden /> Download .md
+                  </button>
+                </div>
+              </div>
+
+              <textarea
+                value={generatedContent.generatedMarkdownContent}
+                onChange={(e) => setGeneratedContent({ ...generatedContent, generatedMarkdownContent: e.target.value })}
+                rows={14}
+                className="w-full rounded-xl border border-border bg-elevated p-4 font-mono text-xs leading-relaxed text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          )}
         </div>
+      ) : (
+        <div className="space-y-3">
+          {history.length === 0 ? (
+            <p className="py-8 text-center text-xs text-muted">No content plans generated yet for this site.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {history.map((plan) => (
+                <div
+                  key={plan.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-bg p-4 text-xs"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-foreground">{plan.targetKeyword}</span>
+                      <span className="font-mono text-[10px] text-muted">
+                        {new Date(plan.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="mt-1 line-clamp-1 text-[11px] text-muted">
+                      {plan.generatedMarkdownContent.substring(0, 120)}…
+                    </p>
+                  </div>
 
-      </div>
-    </div>
+                  <button
+                    onClick={() => {
+                      setGeneratedContent(plan);
+                      setKeyword(plan.targetKeyword);
+                      setActiveTab("editor");
+                    }}
+                    className="cursor-pointer whitespace-nowrap rounded-lg bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/25"
+                  >
+                    View & Edit
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }

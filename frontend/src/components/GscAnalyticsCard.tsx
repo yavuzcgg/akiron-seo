@@ -2,6 +2,7 @@
 
 import DataSourceBadge from "@/components/DataSourceBadge";
 import { apiClient, GscMetrics } from "@/lib/apiClient";
+import { RefreshCw, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface ComponentProps {
@@ -40,10 +41,10 @@ export default function GscAnalyticsCard({ websiteId, websiteName }: ComponentPr
             GOOGLE SEARCH CONSOLE (GSC) ANALYTICS
             <DataSourceBadge source={metrics.dataSource} />
           </span>
-          <h3 className="text-lg font-extrabold text-white flex items-center gap-2 mt-0.5">
-            📈 Organic Google Search Performance
+          <h3 className="mt-0.5 flex items-center gap-2 text-lg font-extrabold text-foreground">
+            <TrendingUp size={18} className="text-primary" aria-hidden /> Organic Google Search Performance
           </h3>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted">
             {metrics.dataSource && metrics.dataSource !== "Live"
               ? "Placeholder figures — Search Console is not connected yet, so these are generated locally and are not organic search data."
               : `Organic search clicks, impressions, CTR %, and avg position for ${websiteName}.`}
@@ -52,35 +53,35 @@ export default function GscAnalyticsCard({ websiteId, websiteName }: ComponentPr
 
         <button
           onClick={fetchGscAnalytics}
-          className="px-3 py-1.5 rounded-lg border border-blue-500/30 text-blue-300 hover:bg-blue-500/20 text-xs font-semibold transition"
+          className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:text-foreground"
         >
-          🔄 Refresh Metrics
+          <RefreshCw size={13} aria-hidden /> Refresh
         </button>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] space-y-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Organic Clicks</span>
+        <div className="p-3.5 rounded-xl border border-border bg-bg space-y-1">
+          <span className="text-[10px] font-bold text-muted uppercase">Organic Clicks</span>
           <div className="text-xl font-extrabold text-emerald-400">{metrics.totalClicks.toLocaleString()}</div>
-          <span className="text-[10px] text-slate-500">Google SERP Clicks</span>
+          <span className="text-[10px] text-subtle">Google SERP Clicks</span>
         </div>
 
-        <div className="p-3.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] space-y-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Total Impressions</span>
+        <div className="p-3.5 rounded-xl border border-border bg-bg space-y-1">
+          <span className="text-[10px] font-bold text-muted uppercase">Total Impressions</span>
           <div className="text-xl font-extrabold text-blue-400">{metrics.totalImpressions.toLocaleString()}</div>
-          <span className="text-[10px] text-slate-500">Search Views</span>
+          <span className="text-[10px] text-subtle">Search Views</span>
         </div>
 
-        <div className="p-3.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] space-y-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Average CTR</span>
+        <div className="p-3.5 rounded-xl border border-border bg-bg space-y-1">
+          <span className="text-[10px] font-bold text-muted uppercase">Average CTR</span>
           <div className="text-xl font-extrabold text-purple-400">{metrics.averageCtrPercentage}%</div>
-          <span className="text-[10px] text-slate-500">Click-Through Rate</span>
+          <span className="text-[10px] text-subtle">Click-Through Rate</span>
         </div>
 
-        <div className="p-3.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] space-y-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Avg Google Position</span>
+        <div className="p-3.5 rounded-xl border border-border bg-bg space-y-1">
+          <span className="text-[10px] font-bold text-muted uppercase">Avg Google Position</span>
           <div className="text-xl font-extrabold text-amber-400">#{metrics.averagePosition}</div>
-          <span className="text-[10px] text-slate-500">Organic SERP Rank</span>
+          <span className="text-[10px] text-subtle">Organic SERP Rank</span>
         </div>
       </div>
     </div>

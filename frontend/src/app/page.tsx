@@ -1,102 +1,84 @@
 "use client";
 
+import Header from "@/components/Header";
 import { useApp } from "@/components/providers";
+import { FileCode2, Radar, Search, Sparkles } from "lucide-react";
 import Link from "next/link";
 
+const features = [
+  {
+    icon: Search,
+    title: "SEO Engine",
+    body: "On-page crawling with weighted, transparent scoring and actionable issues.",
+  },
+  {
+    icon: Sparkles,
+    title: "GEO Engine",
+    body: "Track whether Perplexity and Gemini cite your brand, with share-of-voice sampling.",
+  },
+  {
+    icon: FileCode2,
+    title: "AEO Engine",
+    body: "Generate JSON-LD schemas and llms.txt, and audit robots.txt for AI crawlers.",
+  },
+  {
+    icon: Radar,
+    title: "Gold Opportunities",
+    body: "When an engine cites a 404 on your domain, that gap becomes a content brief.",
+  },
+];
+
 export default function Home() {
-  const { theme, toggleTheme, lang, setLang, t } = useApp();
+  const { t } = useApp();
 
   return (
-    <div className="min-h-screen flex flex-col justify-between p-4 sm:p-6 max-w-7xl mx-auto">
-      {/* Header Bar */}
-      <header className="flex flex-wrap items-center justify-between gap-4 py-2 border-b border-[var(--border-color)]">
-        <Link href="/" className="flex items-center space-x-2.5">
-          <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center font-extrabold text-white text-xl shadow-md">
-            A
-          </div>
-          <span className="font-extrabold text-xl tracking-tight">Akiron SEO</span>
+    <div className="mx-auto flex min-h-screen max-w-7xl flex-col justify-between p-4 sm:p-6">
+      <Header>
+        <Link
+          href="/login"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover"
+        >
+          {t("login")}
         </Link>
+      </Header>
 
-        <div className="flex items-center space-x-2 sm:space-x-3 text-sm font-medium">
-          {/* Language Switcher */}
-          <button
-            onClick={() => setLang(lang === "en" ? "tr" : "en")}
-            className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] hover:opacity-80 transition cursor-pointer"
-            aria-label="Switch Language"
-          >
-            🌐 {lang.toUpperCase()}
-          </button>
-
-          {/* Theme Switcher */}
-          <button
-            onClick={toggleTheme}
-            className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] hover:opacity-80 transition cursor-pointer"
-            aria-label="Toggle Theme"
-          >
-            {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
-          </button>
-
-          <Link
-            href="/login"
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
-          >
-            {t("login")}
-          </Link>
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <main className="my-auto py-12 text-center space-y-6">
-        <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-tight max-w-4xl mx-auto px-2">
+      <main className="my-auto space-y-6 py-12 text-center">
+        <h1 className="mx-auto max-w-4xl px-2 text-3xl font-black leading-tight tracking-tight text-foreground sm:text-5xl md:text-6xl">
           {t("title")}
         </h1>
 
-        <p className="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto px-4">
-          {t("subtitle")}
-        </p>
+        <p className="mx-auto max-w-2xl px-4 text-base text-muted sm:text-lg">{t("subtitle")}</p>
 
-        <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 px-4 pt-2">
+        <div className="flex flex-col justify-center gap-3 px-4 pt-2 sm:flex-row sm:gap-4">
           <Link
             href="/register"
-            className="w-full sm:w-auto px-6 py-3 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20"
+            className="w-full rounded-lg bg-primary px-6 py-3 font-bold text-on-primary shadow-lg transition-colors hover:bg-primary-hover sm:w-auto"
           >
             {t("register")}
           </Link>
           <Link
             href="/login"
-            className="w-full sm:w-auto px-6 py-3 rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] font-bold hover:opacity-80 transition"
+            className="w-full rounded-lg border border-border bg-surface px-6 py-3 font-bold text-foreground transition-colors hover:bg-elevated sm:w-auto"
           >
             {t("login")}
           </Link>
         </div>
 
-        {/* Feature Highlights Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 pt-10 text-left px-2">
-          <div className="p-5 sm:p-6 rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] shadow-sm">
-            <div className="text-2xl mb-2">🔍</div>
-            <h3 className="font-bold text-base sm:text-lg mb-1">SEO Engine</h3>
-            <p className="text-xs sm:text-sm text-slate-400">Classical on-page crawling, PageSpeed & meta analysis.</p>
-          </div>
-          <div className="p-5 sm:p-6 rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] shadow-sm">
-            <div className="text-2xl mb-2">🤖</div>
-            <h3 className="font-bold text-base sm:text-lg mb-1">AIO Engine</h3>
-            <p className="text-xs sm:text-sm text-slate-400">Google AI Overviews & SGE optimization insights.</p>
-          </div>
-          <div className="p-5 sm:p-6 rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] shadow-sm">
-            <div className="text-2xl mb-2">⚡</div>
-            <h3 className="font-bold text-base sm:text-lg mb-1">GEO Engine</h3>
-            <p className="text-xs sm:text-sm text-slate-400">Perplexity, ChatGPT & Gemini native citation tracking & sampling.</p>
-          </div>
-          <div className="p-5 sm:p-6 rounded-xl border border-[var(--border-color)] bg-[var(--card-bg)] shadow-sm">
-            <div className="text-2xl mb-2">💬</div>
-            <h3 className="font-bold text-base sm:text-lg mb-1">AEO Engine</h3>
-            <p className="text-xs sm:text-sm text-slate-400">Automated JSON-LD schemas, robots.txt AI auditor & llms.txt.</p>
-          </div>
+        <div className="grid grid-cols-1 gap-4 px-2 pt-10 text-left sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+          {features.map(({ icon: Icon, title, body }) => (
+            <div
+              key={title}
+              className="rounded-xl border border-border bg-surface p-5 shadow-sm transition-colors hover:border-primary/40 sm:p-6"
+            >
+              <Icon className="mb-3 text-primary" size={24} aria-hidden />
+              <h3 className="mb-1 text-base font-bold text-foreground sm:text-lg">{title}</h3>
+              <p className="text-xs text-muted sm:text-sm">{body}</p>
+            </div>
+          ))}
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="py-4 border-t border-[var(--border-color)] text-center text-xs text-slate-500">
+      <footer className="border-t border-border py-4 text-center text-xs text-subtle">
         {t("rightsReserved")}
       </footer>
     </div>

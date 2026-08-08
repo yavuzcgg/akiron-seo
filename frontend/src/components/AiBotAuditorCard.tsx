@@ -1,8 +1,9 @@
 "use client";
 
 import { apiClient, RobotsTxtAudit } from "@/lib/apiClient";
-import { useState } from "react";
 import { getErrorMessage } from "@/lib/errors";
+import { Bot, Search } from "lucide-react";
+import { useState } from "react";
 
 interface CardProps {
   websiteId: string;
@@ -29,23 +30,23 @@ export default function AiBotAuditorCard({ websiteId, websiteName, tenantId }: C
   };
 
   return (
-    <div className="p-6 rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] space-y-4">
+    <div className="p-6 rounded-2xl border border-border bg-surface space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            🤖 AI Bot Auditor (robots.txt)
+          <h3 className="flex items-center gap-2 text-base font-bold text-foreground">
+            <Bot size={16} className="text-primary" aria-hidden /> AI Bot Auditor (robots.txt)
           </h3>
-          <p className="text-xs text-slate-400">
-            Check if LLM web crawlers (ChatGPT, Claude, Perplexity) are allowed to index {websiteName}.
+          <p className="text-xs text-muted">
+            Check whether LLM crawlers (GPTBot, ClaudeBot, PerplexityBot) may index {websiteName}.
           </p>
         </div>
 
         <button
           onClick={handleRunAudit}
           disabled={loading}
-          className="px-3.5 py-1.5 rounded-lg border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 font-semibold text-xs transition disabled:opacity-50"
+          className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3.5 py-1.5 text-xs font-semibold text-muted transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Checking..." : "🔍 Check AI Crawlers"}
+          <Search size={13} aria-hidden /> {loading ? "Checking…" : "Check Crawlers"}
         </button>
       </div>
 
@@ -61,14 +62,14 @@ export default function AiBotAuditorCard({ websiteId, websiteName, tenantId }: C
             {audit.botStatuses.map((bot, idx) => (
               <div
                 key={idx}
-                className="p-3.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] flex items-center justify-between gap-3"
+                className="p-3.5 rounded-xl border border-border bg-bg flex items-center justify-between gap-3"
               >
                 <div>
                   <div className="flex items-center space-x-2">
-                    <span className="font-bold text-sm text-slate-200">{bot.botName}</span>
-                    <span className="text-[10px] font-mono text-slate-400">({bot.userAgent})</span>
+                    <span className="font-bold text-sm text-foreground">{bot.botName}</span>
+                    <span className="text-[10px] font-mono text-muted">({bot.userAgent})</span>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">{bot.description}</p>
+                  <p className="text-[11px] text-muted mt-0.5 leading-tight">{bot.description}</p>
                 </div>
 
                 <span
@@ -77,7 +78,7 @@ export default function AiBotAuditorCard({ websiteId, websiteName, tenantId }: C
                       ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                       : bot.status === "Disallowed"
                       ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                      : "bg-slate-500/10 text-slate-400 border border-slate-500/20"
+                      : "bg-slate-500/10 text-muted border border-slate-500/20"
                   }`}
                 >
                   {bot.status === "Allowed" ? "✓ Allowed" : bot.status === "Disallowed" ? "✕ Blocked" : "⚪ Default"}
@@ -86,8 +87,8 @@ export default function AiBotAuditorCard({ websiteId, websiteName, tenantId }: C
             ))}
           </div>
 
-          <div className="text-[11px] text-slate-500 text-right pt-1">
-            Status based on <code className="text-slate-400">{audit.domainUrl}/robots.txt</code>
+          <div className="text-[11px] text-subtle text-right pt-1">
+            Status based on <code className="text-muted">{audit.domainUrl}/robots.txt</code>
           </div>
         </div>
       )}

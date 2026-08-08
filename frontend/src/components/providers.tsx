@@ -81,6 +81,12 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     localStorage.setItem("akiron_theme", theme);
   }, [theme, mounted]);
 
+  useEffect(() => {
+    if (!mounted) return;
+    // Keep the document language in sync so screen readers announce correctly.
+    document.documentElement.lang = lang;
+  }, [lang, mounted]);
+
   const handleSetLang = (newLang: Language) => {
     setLang(newLang);
     localStorage.setItem("akiron_lang", newLang);

@@ -52,87 +52,87 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-md p-6 sm:p-8 rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)] shadow-xl space-y-6">
-        <div className="text-center space-y-2">
-          <Link href="/" className="inline-block font-extrabold text-2xl tracking-tight text-blue-500">
+      <div className="w-full max-w-md space-y-6 rounded-2xl border border-border bg-surface p-6 shadow-xl sm:p-8">
+        <div className="space-y-2 text-center">
+          <Link href="/" className="inline-block text-2xl font-extrabold tracking-tight text-primary">
             Akiron SEO
           </Link>
-          <h2 className="text-xl font-bold">{t("register")}</h2>
+          <h2 className="text-xl font-bold text-foreground">{t("register")}</h2>
         </div>
 
         {message && (
-          <div className="p-3.5 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-semibold text-center">
+          <div className="rounded-lg border border-success/20 bg-success/10 p-3.5 text-center text-xs font-semibold text-success">
             {message}
           </div>
         )}
 
         {error && (
-          <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold text-center">
+          <div className="rounded-lg border border-danger/20 bg-danger/10 p-3.5 text-center text-xs font-semibold text-danger">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1">{t("tenantName")}</label>
+            <label className="mb-1 block text-xs font-semibold text-muted">{t("tenantName")}</label>
             <input
               type="text"
               value={tenantName}
               onChange={(e) => setTenantName(e.target.value)}
               placeholder="Acme Digital Agency"
               required
-              className="w-full px-4 py-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full rounded-lg border border-border bg-bg px-4 py-2.5 text-sm text-foreground placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1">{t("fullName")}</label>
+            <label className="mb-1 block text-xs font-semibold text-muted">{t("fullName")}</label>
             <input
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="John Doe"
               required
-              className="w-full px-4 py-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full rounded-lg border border-border bg-bg px-4 py-2.5 text-sm text-foreground placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1">{t("email")}</label>
+            <label className="mb-1 block text-xs font-semibold text-muted">{t("email")}</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@agency.com"
               required
-              className="w-full px-4 py-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full rounded-lg border border-border bg-bg px-4 py-2.5 text-sm text-foreground placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1">{t("password")}</label>
+            <label className="mb-1 block text-xs font-semibold text-muted">{t("password")}</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
-              className="w-full px-4 py-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full rounded-lg border border-border bg-bg px-4 py-2.5 text-sm text-foreground placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-lg bg-blue-600 font-bold text-white hover:bg-blue-700 transition disabled:opacity-50"
+            className="w-full cursor-pointer rounded-lg bg-primary py-3 font-bold text-on-primary transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? "Registering..." : t("submitRegister")}
           </button>
         </form>
 
-        <div className="text-center text-xs text-slate-400 pt-2 border-t border-[var(--border-color)]">
+        <div className="border-t border-border pt-2 text-center text-xs text-muted">
           Already registered?{" "}
-          <Link href="/login" className="text-blue-500 font-semibold hover:underline">
+          <Link href="/login" className="font-semibold text-primary hover:underline">
             {t("login")}
           </Link>
         </div>

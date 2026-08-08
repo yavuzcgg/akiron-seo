@@ -260,14 +260,22 @@ Things you will notice that are already understood:
 
 | What you will see | Status |
 | --- | --- |
-| **Light mode is broken** — white text on white cards, especially in the admin panel | Known. Components hardcode `text-white` / `bg-slate-*` with zero `dark:` variants, so the theme toggle is effectively decorative. Part of the design rework below. |
 | The **EN/TR toggle** changes almost nothing once you are logged in | Known. Only 12 translation keys exist, covering the landing and auth pages. The dashboard is hardcoded English. |
-| Turkish text in a few places (`motosiklet kaskı` placeholders, one form label) | Known. Leftover test data, and a violation of the English-only rule in `AGENTS.md`. |
-| Dashboard feels slow with several websites | Known. Each website row mounts ~6 cards that each fetch independently, so N sites means roughly 6N requests on mount. |
+| Dashboard feels slow with several websites | Known. Each website row mounts ~6 cards that each fetch independently, so N sites means roughly 6N requests on mount. This is also the source of the remaining `react-hooks/set-state-in-effect` lint warnings — a shared data-fetching hook is the fix. |
 | The crawler only ever reports 1 page | Known and by design today — it fetches the homepage only. No sitemap parsing or link following. |
 | No password reset, email verification, team management, or billing | Not built. |
 | Keyword tracking always says language `tr` | Known. Hardcoded in the API client with no UI control. |
 | Scheduled rank checks never fire on their own | Known. Cron expressions are parsed and stored, but no background runner exists — this is the next planned piece of work. |
+
+### Design check (new)
+
+The UI was reworked onto a shared design system. Worth a look while testing:
+
+- **Toggle the theme** (the sun/moon button, top-right). Light mode now works properly — dark text on light surfaces across every page including the admin panel and all dashboard cards, not white-on-white. Both themes are driven by CSS tokens in `globals.css`, so nothing is hardcoded per-theme.
+- **Icons are SVGs (Lucide), not emoji.** The card headers, buttons, and modal tabs all use a consistent icon set.
+- **Modals** (audit report, AEO, AI writer, quota) share one accessible shell: press **Escape** to close, **click the backdrop** to close, and **Tab** cycles focus inside the dialog without escaping it. Focus returns to where you were on close.
+- **Typography** is Fira Sans for UI and Fira Code for data/code blocks, self-hosted via `next/font`.
+- The design system is documented in `frontend/design-system/akiron-seo/MASTER.md`.
 
 ---
 
