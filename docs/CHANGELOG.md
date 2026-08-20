@@ -4,6 +4,33 @@ All progress, phase updates, and development milestones for **Akiron SEO** are r
 
 ---
 
+## [Cookie Sessions, Validation & Query Client - Completed] - 2026-08-15
+
+### Security
+
+- [x] Moved access and refresh tokens to host-only `HttpOnly`, `SameSite=Lax` cookies and removed token-bearing response DTOs and browser storage.
+- [x] Added SHA-256 refresh-token hashes, token families, atomic rotation, reuse-family revocation, logout revocation, and single-active-session login behavior.
+- [x] Added live user, membership, role, and tenant checks to every authenticated access token; inactive tenants and stale roles are rejected immediately.
+- [x] Added zero-queue IP rate limits for login, registration, and refresh plus FluentValidation for auth and mutation payloads.
+- [x] Standardized validation, authentication, authorization, conflict, and rate-limit failures as RFC 7807 responses with correlation identifiers.
+- [x] Added the `SecureCookieSessions` migration, intentionally invalidating only existing sessions while preserving users and passwords.
+
+### Frontend and data correctness
+
+- [x] Added TanStack Query v5, stable keys, targeted invalidation, explicit loading/empty/error states, and a single-flight refresh with one retry.
+- [x] Removed token-based local session state and the `document.write` report workaround; reports now open directly with cookies.
+- [x] Reduced initial dashboard traffic to session, websites, and subscription quota; per-site insights load only when expanded.
+- [x] Replaced artificial crawl, AI, and keyword quota meters with the real subscription token limit, usage, remaining amount, period, and an enforcement-status disclosure.
+- [x] Eliminated all frontend lint errors and warnings, added accessible auth/form metadata, and migrated admin quota styling to semantic theme tokens.
+
+### Verification
+
+- [x] Backend integration coverage expanded to cookie flags, hash storage, refresh rotation/reuse, logout, tenant and role revocation, validation, and rate limiting.
+- [x] Added Vitest and React Testing Library coverage for the cookie API client, shared refresh, session guard, admin visibility, translation keys, and auth labels.
+- [x] CI now enforces warning-as-error backend builds, frontend lint, frontend tests, type checking, production build, and both Docker image builds.
+
+---
+
 ## [Design System & UI Rework - Completed] - 2026-08-08
 
 ### 🎯 Objective

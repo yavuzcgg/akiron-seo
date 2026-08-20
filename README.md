@@ -58,7 +58,7 @@ flowchart TB
 
     subgraph API["ASP.NET Core Minimal API (.NET 10)"]
         direction TB
-        MW["Middleware chain<br/>CORS → exception handler → JWT auth<br/>→ authorization policy → tenant resolver"]
+        MW["Middleware chain<br/>CORS → rate limiting → cookie JWT auth<br/>→ live membership check → tenant resolver"]
         EP["13 endpoint modules<br/><i>/api/v1/...</i>"]
         MW --> EP
     end
@@ -79,7 +79,7 @@ flowchart TB
     ENGINES["AI engines<br/><i>Perplexity · Gemini</i>"]
     SITES["Tenant websites<br/><i>crawl targets</i>"]
 
-    Browser -->|"JWT bearer"| MW
+    Browser -->|"HttpOnly cookies"| MW
     EP --> CQRS
     EP --> SVC
     CQRS --> EF
@@ -128,14 +128,14 @@ before any connection is opened.
 | **Backend** | .NET 10 · ASP.NET Core Minimal APIs · Clean Architecture |
 | **CQRS** | MediatR 12.4 |
 | **Persistence** | EF Core 10 · Npgsql · PostgreSQL 16 (native `jsonb`) |
-| **Auth** | JWT bearer + rotating refresh tokens · PBKDF2-HMAC-SHA512 (600k iterations) |
+| **Auth** | HttpOnly access/refresh cookies · hashed rotating token families · live membership validation · PBKDF2-HMAC-SHA512 |
 | **Crypto** | AES-256-GCM envelope encryption for tenant BYOK keys |
 | **Scheduling** | Cronos (cron expression parsing) |
 | **Logging** | Serilog structured logging · RFC 7807 problem details |
 | **DNS** | DnsClient (TXT-record domain ownership verification) |
-| **Frontend** | Next.js 16 App Router · React 19 · TypeScript 5 (strict) · Tailwind CSS 4 |
+| **Frontend** | Next.js 16 App Router · React 19 · TypeScript 5 (strict) · Tailwind CSS 4 · TanStack Query 5 |
 | **Design system** | CSS-token theming (working light + dark) · Lucide icons · Fira Sans/Code via `next/font` |
-| **Testing** | xUnit · Testcontainers for PostgreSQL |
+| **Testing** | xUnit · Testcontainers for PostgreSQL · Vitest · React Testing Library |
 | **Infra** | Docker multi-stage builds · Docker Compose |
 
 ---
@@ -198,6 +198,7 @@ This seed is skipped in every other environment, so a deployment has no default 
 | `Jwt__SecretKey` | Access-token signing key (min. 256 bits) |
 | `Security__MasterEncryptionKey` | Derives the AES key protecting tenant BYOK keys |
 | `Cors__AllowedOrigins__0` | Origin permitted to call the API with credentials |
+| `Auth__CookieSecure` | Keep `true` in deployments; set `false` only for loopback HTTP development |
 | `NEXT_PUBLIC_API_URL` | API base URL — **build-time**, baked into the client bundle |
 
 > Rotating `Security__MasterEncryptionKey` makes all previously stored tenant API keys
@@ -240,7 +241,7 @@ simulated figure is never presented as a real one.
 | Feature | Status | Notes |
 | --- | --- | --- |
 | Multi-tenant isolation | ✅ Real | EF global query filters, integration-tested |
-| JWT auth + refresh rotation | ✅ Real | PBKDF2-HMAC-SHA512, 600k iterations |
+| Cookie auth + refresh rotation | ✅ Real | HttpOnly/Lax host-only cookies, SHA-256 token hashes, family reuse revocation, live role/tenant checks |
 | Idempotent quota ledger | ✅ Real | Atomic, concurrency-tested — not yet called by job flows |
 | BYOK key encryption | ✅ Real | AES-256-GCM envelope encryption |
 | SEO audit + crawler | ⚠️ Partial | Real HTTP fetch and weighted scoring, but **homepage only** — no sitemap or link following |
@@ -256,7 +257,7 @@ simulated figure is never presented as a real one.
 | Competitor SERP gap analysis | ❌ Simulated | Returns a fixed keyword set. Badged in the UI. |
 | Background job runner | ❌ Missing | Cron schedules are computed but nothing executes them |
 | Billing / subscriptions | ❌ Missing | Manual B2B renewal only; no payment provider |
-| CI | ✅ Real | GitHub Actions: backend build + Testcontainers tests, frontend type-check + build, both Docker images |
+| CI | ✅ Real | Warning-as-error backend build, Testcontainers tests, frontend lint/type-check/Vitest/build, and both Docker images |
 
 ---
 
@@ -271,13 +272,16 @@ The suite spins up a throwaway PostgreSQL 16 container via Testcontainers and ap
 real migrations, so unique indexes, foreign keys, transactions, and row locking behave
 exactly as in production. Docker must be running.
 
-Current coverage is deliberately narrow but deep — it targets the two subsystems where a
-bug is silent and expensive:
+The backend suite currently contains 18 PostgreSQL-backed tests. It covers the two core
+isolation subsystems plus the HTTP authentication contract:
 
 - `QuotaLedgerTests` — idempotency, limit enforcement, concurrent non-overdraw, double-refund prevention
 - `TenantIsolationTests` — cross-tenant leakage, soft-delete filtering, partial unique index races
+- `ApiAuthenticationTests` — cookie flags, hash-only storage, refresh reuse detection, logout, live tenant/role revocation, validation, and rate limiting
 
-Broader API-level coverage is on the roadmap.
+The frontend has Vitest/React Testing Library coverage for the credentialed API client,
+single-flight refresh and one-time retry, session guarding, admin visibility, EN/TR catalog
+alignment, and accessible authentication labels.
 
 ---
 
@@ -300,7 +304,8 @@ akiron-seo/
 │   └── src/
 │       ├── app/                           # App Router pages: /, /login, /register, /dashboard, /admin
 │       ├── components/                    # Dashboard cards and modals
-│       └── lib/                           # Typed API client, session handling
+│       ├── hooks/                         # Query-backed session hooks
+│       └── lib/                           # Typed API client, query keys, EN/TR catalog
 ├── docs/                                  # Architecture, ADRs, changelog, dev notes
 └── docker-compose.yml
 ```
@@ -317,10 +322,9 @@ Key reading: [`SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) ·
 
 **Next — a background job runner** so the computed cron schedules actually fire; today
 `TrackedKeyword.NextScheduledRun` is written and never read, and every analysis runs inline
-in the HTTP request. Alongside it, wiring the quota ledger into the crawl, GEO, and AI
-flows and reading real limits from `Plan.LimitsJson` instead of hardcoded constants — the
-ledger is implemented and tested but nothing calls it. Then rate limiting on login and
-hashed refresh tokens at rest.
+in the HTTP request. Alongside it, wire the existing quota ledger into crawl, GEO, and AI
+flows. The dashboard now reports only the real subscription token limit and clearly marks
+enforcement as disconnected until those flows reserve quota.
 
 **Then — real integrations.** Google Search Console via OAuth first, since the API is free
 and it replaces the most misleading simulated feature. A SERP provider for genuine rank
@@ -328,8 +332,8 @@ tracking. OpenAI and Anthropic GEO adapters to complete the citation matrix. Rea
 delivery and signed, retried webhooks.
 
 **Later — productisation.** Payment integration, a multi-page crawler using a real HTML
-parser instead of regex, completing i18n coverage beyond the current 12 translation keys,
-fixing light mode, and API-level test coverage via `WebApplicationFactory`.
+parser instead of regex, broader UI localization coverage, and expanded end-to-end browser
+coverage.
 
 ---
 

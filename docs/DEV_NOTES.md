@@ -25,6 +25,10 @@ Generate the two keys with `openssl rand -base64 48`. The API refuses to start i
 non-Development environment when `Jwt__SecretKey` or `Security__MasterEncryptionKey` is
 missing or still set to an example value.
 
+`Auth__CookieSecure` must remain `true` in deployed environments. The compose example sets
+it to `false` only because the documented local stack uses loopback HTTP; startup rejects
+that exception when a configured frontend origin is not loopback.
+
 > Rotating `MASTER_ENCRYPTION_KEY` makes every previously stored tenant BYOK API key
 > undecryptable — they have to be re-entered.
 
@@ -103,9 +107,16 @@ The volume is dropped and the next API start rebuilds the schema and seed data.
 ## 🧪 Tests
 ```powershell
 cd <repo>\backend
+dotnet build --warnaserror
 dotnet test
+
+cd <repo>\frontend
+npm run lint
+npm run test -- --run
+npx tsc --noEmit
+npm run build
 ```
-The integration suite starts a throwaway PostgreSQL container via Testcontainers and applies the real migrations, so unique indexes, foreign keys, transactions and row locking behave as they do in production. Docker must be running; the first run pulls `postgres:16-alpine`.
+The backend integration suite starts a throwaway PostgreSQL container via Testcontainers and applies the real migrations, so unique indexes, foreign keys, transactions and row locking behave as they do in production. Docker must be running; the first run pulls `postgres:16-alpine`. Frontend tests use Vitest, React Testing Library, and jsdom.
 
 ---
 

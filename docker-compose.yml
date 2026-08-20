@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: akironseo_postgres
-    restart: always
+    restart: "no"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -25,7 +25,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: akironseo_backend
-    restart: always
+    restart: "no"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__DefaultConnection: "Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
@@ -33,6 +33,7 @@ services:
       Jwt__SecretKey: ${JWT_SECRET_KEY}
       Security__MasterEncryptionKey: ${MASTER_ENCRYPTION_KEY}
       Cors__AllowedOrigins__0: ${FRONTEND_ORIGIN}
+      Auth__CookieSecure: ${AUTH_COOKIE_SECURE:-false}
     ports:
       - "5248:5248"
     depends_on:
@@ -53,7 +54,7 @@ services:
         # Baked into the client bundle at build time; changing it requires a rebuild.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     container_name: akironseo_frontend
-    restart: always
+    restart: "no"
     ports:
       - "3000:3000"
     depends_on:

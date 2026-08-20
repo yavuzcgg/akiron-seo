@@ -35,7 +35,7 @@ jobs:
         working-directory: backend
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build --no-restore --configuration Release --warnaserror
         working-directory: backend
 
       # Testcontainers starts its own PostgreSQL 16 container, so no service container
@@ -53,7 +53,7 @@ jobs:
           if-no-files-found: ignore
 
   frontend:
-    name: Frontend — lint & build
+    name: Frontend — lint, test & build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,12 +73,13 @@ jobs:
         run: npx tsc --noEmit
         working-directory: frontend
 
-      # Not gating on lint yet: a batch of pre-existing react-hooks findings needs the
-      # shared data-fetching hook refactor first. Remove once that lands.
       - name: Lint
-        run: npx eslint src
+        run: npm run lint
         working-directory: frontend
-        continue-on-error: true
+
+      - name: Unit tests
+        run: npm run test -- --run
+        working-directory: frontend
 
       - name: Build
         run: npm run build

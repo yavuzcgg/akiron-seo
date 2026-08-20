@@ -19,7 +19,7 @@ AkironSeo is an enterprise-grade, multi-tenant SaaS platform that automates, mea
   - **Gemini**: Google Search `groundingMetadata` adapter
   - **Anthropic**: Claude web search tool adapter
 - **Background Jobs**: Hangfire (PostgreSQL Storage) + Scoped `TenantJobFilter` Activator
-- **Security & Auth**: Multi-Tenant RBAC + JWT Access Token + HttpOnly Refresh Cookie (`SameSite=Lax`) + BYOK (AES-256-GCM)
+- **Security & Auth**: Multi-Tenant RBAC + HttpOnly access/refresh cookies (`SameSite=Lax`) + hashed refresh-token families + BYOK (AES-256-GCM)
 
 ---
 
@@ -80,6 +80,6 @@ AkironSeo is an enterprise-grade, multi-tenant SaaS platform that automates, mea
 - QuotaReservations ledger concurrency and double-refund prevention tests
 
 ### Manual Verification
-- Tenant registration, user role verification, and SameSite=Lax HttpOnly Cookie JWT verification
+- Tenant registration, live user/tenant/role verification, and SameSite=Lax HttpOnly access/refresh cookie verification
 - `robots.txt` AI bot audit verification
 - Perplexity Sonar API live citation and Mention Rate % calculation verification

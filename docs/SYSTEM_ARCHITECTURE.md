@@ -49,6 +49,21 @@
 
 ---
 
+## Authentication and request security
+
+- The browser receives `akiron_access` and `akiron_refresh` as host-only, `HttpOnly`, `SameSite=Lax` cookies. Access is scoped to `/api`; refresh is scoped to `/api/v1/auth`.
+- Login and registration return `SessionDto`; tokens never appear in JSON responses or browser storage.
+- Refresh tokens are stored only as SHA-256 hashes. Rotation links tokens through `FamilyId` and `ReplacedByTokenHash`; reuse of a revoked token revokes every still-active token in that family.
+- A new login revokes prior refresh families for that user, preserving the single-active-session behavior.
+- Every validated access token is checked against the current user, tenant membership, role, and tenant deletion state. Role changes and tenant disablement therefore take effect without waiting for token expiry.
+- Login, registration, and refresh use IP-partitioned fixed-window rate limits with no queue. Defaults are 5/minute, 3/hour, and 30/minute respectively.
+- FluentValidation covers authentication and mutation inputs. API failures use RFC 7807 responses and include the request `correlationId`.
+- `Secure=true` is the deployment default. The only supported exception is loopback HTTP development with an explicit `Auth:CookieSecure=false` setting.
+
+The frontend uses TanStack Query for the session and server state. Concurrent `401` responses share one refresh request, and each original request is retried no more than once. A failed refresh clears the session cache and returns the browser to `/login`.
+
+---
+
 ## 🏛️ 2. .NET 10 Clean Architecture & Global vs Tenant Entity Classification
 
 Backend consists of 4 layers following Clean Architecture dependencies pointing inward to `Domain`.
@@ -98,7 +113,7 @@ EF Core `x => !x.IsDeleted && x.TenantId == _tenantContext.CurrentTenantId` filt
 1. **Tenants**: `Id (Guid)`, `Name (string)`, `Slug (string)`, `CreatedAt (DateTime)`, `IsDeleted (bool)`
 2. **TenantUsers**: `TenantId (Guid)`, `UserId (Guid)`, `Role (UserRoleEnum: Owner, Admin, Member)`, `JoinedAt (DateTime)`
 3. **Users**: `Id (Guid)`, `Email (string)`, `PasswordHash (string)`, `FullName (string)`, `IsActive (bool)`, `CreatedAt (DateTime)`
-4. **RefreshTokens**: `Id (Guid)`, `UserId (Guid)`, `Token (string)`, `ExpiresAt (DateTime)`, `IsRevoked (bool)`, `CreatedAt (DateTime)`
+4. **RefreshTokens**: `Id (Guid)`, `UserId (Guid)`, `TokenHash (string, unique)`, `FamilyId (Guid)`, `ExpiresAt (DateTime)`, `RevokedAt (DateTime?)`, `ReplacedByTokenHash (string?)`, `CreatedAt (DateTime)`. Raw refresh tokens are never persisted.
 5. **EncryptedTenantApiKeys**: `Id (Guid)`, `TenantId (Guid)`, `Provider (AiProviderEnum: OpenAI, Perplexity, Gemini, Anthropic)`, `EncryptedKey (string - AES-256-GCM)`, `IsActive (bool)`, `CreatedAt (DateTime)`
 6. **Plans**: `Id (Guid)`, `Name (string)`, `PriceMonthly (decimal)`, `LimitsJson (jsonb)`
 7. **Subscriptions**: `Id (Guid)`, `TenantId (Guid)`, `PlanId (Guid)`, `Status (SubscriptionStatusEnum: Active, PastDue, Cancelled)`, `MonthlyLimitTokens (long)`, `UsedTokens (long)`, `CurrentPeriodStart (DateTime)`, `CurrentPeriodEnd (DateTime)`
