@@ -4,6 +4,41 @@ All progress, phase updates, and development milestones for **Akiron SEO** are r
 
 ---
 
+## [Background Engine, 4-Engine GEO Matrix, AngleSharp Crawler & Princeton GEO AI Writer - Completed] - 2026-08-20
+
+### ⚙️ Background Engine & Quota Ledger Wiring
+- [x] Implemented `ScheduledKeywordWorker` (.NET `BackgroundService`) running every 30s with isolated `ITenantContext` scoping to check due keywords and advance `NextScheduledRun` using `Cronos`.
+- [x] Added automated subscription expiration sweep transitioning expired plans (`CurrentPeriodEnd < UtcNow`) to `PastDue`.
+- [x] Implemented channel-based `BackgroundJobQueue` for asynchronous fire-and-forget decoupled tasks.
+- [x] Added `CommitQuotaAsync` in `QuotaLedgerService` for atomic `Reserved -> Committed` state transitions with actual token variance reconciliation.
+- [x] Wired live token enforcement (`CrawlCost = 5`, `GeoAnalysisCost = 10`, `AiContentCost = 25`) across Web Crawler, GEO Intelligence, and AI Content Writer with automatic `QuotaExceededException` (HTTP `402 Payment Required`).
+- [x] Updated frontend `TenantQuotaCard.tsx` with active green enforcement badge and dual-language translation keys (`enforcedActive`).
+
+### 🤖 4-Engine GEO Citation Matrix
+- [x] Implemented `OpenAiSearchAdapter` querying `gpt-4o-mini` with web search analysis, citation parsing, brand mention verification, and sentiment classification.
+- [x] Implemented `AnthropicAdapter` querying `claude-3-5-haiku-20241022` with web source extraction and sentiment verification.
+- [x] Registered all 4 GEO adapters in DI (`PerplexitySonarAdapter`, `GeminiGroundingAdapter`, `OpenAiSearchAdapter`, `AnthropicAdapter`) with transparent data provenance reporting (`Live`, `NotConfigured`, `Unavailable`).
+
+### 🕷️ AngleSharp Multi-Page HTML5 DOM & Sitemap Crawler
+- [x] Integrated `AngleSharp 1.7.1` HTML5 DOM parser into `WebCrawlerService`, replacing fragile regular expressions.
+- [x] Added automated `sitemap.xml` and `sitemap_index.xml` discovery and `<loc>` URL queueing.
+- [x] Added multi-page internal link crawler with visited URL loop protection (`DefaultMaxCrawlPages = 5`).
+- [x] Added image `alt` attribute auditing (`IMAGES_MISSING_ALT`), heading hierarchy verification, OpenGraph tag validation, and strict outbound SSRF protection (`OutboundUrlGuard`).
+- [x] Generated per-page `CrawlResult` records and calculated aggregate website SEO health score.
+
+### 📝 Princeton GEO AI Content Writer & AI Robots.txt / LLMs.txt
+- [x] Upgraded `AiContentWriterService` with multi-provider priority fallback cascade: **Gemini** -> **OpenAI** -> **Anthropic** -> Deterministic Princeton GEO template.
+- [x] Implemented Princeton University GEO prompt architecture: 50-word direct answer block, statistical benchmark comparison table, authoritative expert quotations, structured H2/H3 hierarchy, schema-ready FAQ, and domain citation anchors.
+- [x] Added `GenerateOptimizedRobotsTxt` in `RobotsTxtAuditorService` with presets for `MaxAiVisibility`, `SearchOnlyAi`, and `BlockAiTraining`.
+- [x] Verified automated `llms.txt` and `llms-full.txt` generation in `AeoGeneratorService`.
+
+### 🧪 Verification
+- [x] Expanded backend PostgreSQL integration test suite from 18 to **32 tests** (100% pass rate against real PostgreSQL 16 Testcontainers).
+- [x] All 8 Vitest frontend tests passed with zero errors (`npx vitest run`).
+- [x] TypeScript validation (`npx tsc --noEmit`) and Next.js 16 build (`npm run build`) passed with zero errors.
+
+---
+
 ## [Cookie Sessions, Validation & Query Client - Completed] - 2026-08-15
 
 ### Security

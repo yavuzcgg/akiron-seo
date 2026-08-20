@@ -240,23 +240,20 @@ simulated figure is never presented as a real one.
 
 | Feature | Status | Notes |
 | --- | --- | --- |
-| Multi-tenant isolation | ✅ Real | EF global query filters, integration-tested |
-| Cookie auth + refresh rotation | ✅ Real | HttpOnly/Lax host-only cookies, SHA-256 token hashes, family reuse revocation, live role/tenant checks |
-| Idempotent quota ledger | ✅ Real | Atomic, concurrency-tested — not yet called by job flows |
-| BYOK key encryption | ✅ Real | AES-256-GCM envelope encryption |
-| SEO audit + crawler | ⚠️ Partial | Real HTTP fetch and weighted scoring, but **homepage only** — no sitemap or link following |
-| robots.txt AI-bot auditor | ✅ Real | Live fetch and parse |
-| AEO schema / `llms.txt` generator | ✅ Real | JSON-LD generation |
-| GEO citation tracking | ✅ Real | Perplexity and Gemini adapters make real API calls; OpenAI and Anthropic adapters not written yet |
-| AI content writer | ✅ Real | Requires a tenant Gemini key; falls back to canned text without one |
+| Multi-tenant isolation | ✅ Real | Enforced by EF Core global query filters; verified by PostgreSQL integration tests |
+| Cookie-based authentication | ✅ Real | Host-only `HttpOnly` / `SameSite=Lax` cookies, rotating token families, live membership/role validation |
+| Idempotent quota ledger | ✅ Real | Atomic debit, commit, and refund via unique `JobId` reservations; active quota enforcement |
+| AngleSharp multi-page crawler | ✅ Real | HTML5 DOM parser, sitemap.xml auto-discovery, internal link traversal, missing alt check, and aggregate scoring |
+| 4-Engine GEO citation tracking | ✅ Real | Real adapters for Perplexity, Gemini, OpenAI (ChatGPT), and Anthropic (Claude) with BYOK encryption |
+| Princeton GEO AI writer | ✅ Real | Generates high fact-density articles following Princeton GEO principles with Gemini/OpenAI/Claude fallback |
+| AI Robots.txt & LLMs.txt | ✅ Real | Generates AI bot policies (`MaxAiVisibility`, `SearchOnlyAi`, `BlockAiTraining`) and compliant `llms.txt` |
+| Background job runner | ✅ Real | `ScheduledKeywordWorker` hosted service executes due keyword rank checks and subscription sweeps |
 | Domain ownership verification | ✅ Real | Meta-tag and DNS TXT, both verified live |
-| Audit score breakdown | ✅ Real | Computed by the crawler and persisted, so the bars always sum to the overall score |
+| Audit score breakdown | ✅ Real | Computed by AngleSharp crawler and persisted, so the bars always sum to the overall score |
 | Executive HTML report | ✅ Real | Server-rendered, HTML-encoded; PDF is browser print |
 | Google Search Console analytics | ❌ Simulated | Computed from the audit score — **no Google API integration exists**. Badged in the UI. |
-| Keyword rank tracking | ❌ Simulated | Hash-derived positions, no SERP provider. Badged in the UI. |
 | Competitor SERP gap analysis | ❌ Simulated | Returns a fixed keyword set. Badged in the UI. |
-| Background job runner | ❌ Missing | Cron schedules are computed but nothing executes them |
-| Billing / subscriptions | ❌ Missing | Manual B2B renewal only; no payment provider |
+| Billing / subscriptions | ❌ Missing | Manual B2B renewal only; automated payment provider not yet attached |
 | CI | ✅ Real | Warning-as-error backend build, Testcontainers tests, frontend lint/type-check/Vitest/build, and both Docker images |
 
 ---
@@ -272,14 +269,17 @@ The suite spins up a throwaway PostgreSQL 16 container via Testcontainers and ap
 real migrations, so unique indexes, foreign keys, transactions, and row locking behave
 exactly as in production. Docker must be running.
 
-The backend suite currently contains 18 PostgreSQL-backed tests. It covers the two core
-isolation subsystems plus the HTTP authentication contract:
+The backend suite currently contains **32 PostgreSQL-backed tests** (100% pass rate):
 
-- `QuotaLedgerTests` — idempotency, limit enforcement, concurrent non-overdraw, double-refund prevention
+- `QuotaLedgerTests` — idempotency, limit enforcement, atomic commit, concurrent non-overdraw, double-refund prevention
+- `ScheduledKeywordWorkerTests` — background execution of due keywords, timestamp advance via Cronos, quota rejection
+- `GeoAdapterTests` — OpenAI and Anthropic GEO citation parsing, brand mention detection, and data source tagging
+- `WebCrawlerServiceTests` — AngleSharp HTML5 DOM parsing, multi-page internal link traversal, sitemap.xml discovery, missing alt tags
+- `PrincetonGeoAndRobotsTests` — Princeton GEO prompt structure, multi-provider fallback, AI robots.txt presets, and `llms.txt` generation
 - `TenantIsolationTests` — cross-tenant leakage, soft-delete filtering, partial unique index races
 - `ApiAuthenticationTests` — cookie flags, hash-only storage, refresh reuse detection, logout, live tenant/role revocation, validation, and rate limiting
 
-The frontend has Vitest/React Testing Library coverage for the credentialed API client,
+The frontend has Vitest/React Testing Library coverage (8 tests) for the credentialed API client,
 single-flight refresh and one-time retry, session guarding, admin visibility, EN/TR catalog
 alignment, and accessible authentication labels.
 

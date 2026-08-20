@@ -22,6 +22,30 @@
                                   +-----------------------+------------------------+
                                                           | REST API / JSON (English)
                                                           v
+# AkironSeo - System Architecture & Technical Design Document (v5.0 - Definitive Production Architecture)
+
+> [!IMPORTANT]
+> **v5.0 Architectural Updates & Core Rules**:
+> - **Language Standard**: All source code, comments, database schemas, DTOs, commit messages, and API responses are **100% IN ENGLISH**.
+> - **Multi-Tenancy Schema Alignment**: Explicit `TenantId` column denormalized across ALL tenant-scoped tables (`TrackedKeywords`, `CrawlJobs`, `CrawlResults`, `SeoAudits`, `SiteSnapshots`, `GeoAnalyses`, `AeoSchemas`, `AiContentPlans`, `Notifications`, `QuotaReservations`, `EncryptedTenantApiKeys`).
+> - **QuotaReservations Ledger Table (Table #22)**: Idempotent quota tracking via `JobId` (Unique), handling `Reserved`, `Committed`, and `Refunded` states cleanly.
+> - **Subscription Period Reset**: Nightly job transitions expired subscriptions (`CurrentPeriodEnd < UtcNow`) to `PastDue` state, blocking new jobs until admin renewal.
+> - **CitationStatus Verification Pipeline Step**: Automated HEAD/GET HTTP verification. `Valid` (2xx), `NonExistentPage` (404 - Gold Opportunity Trigger), `WrongDomain`, `Unreachable` (5xx/Timeout).
+> - **Cron Parsing**: Powered by `Cronos` library for `NextScheduledRun` computation.
+
+---
+
+## 📌 1. High-Level System Topology (MVP Topology)
+
+```
+                                  +------------------------------------------------+
+                                  |            Next.js 15/16 Client (App Router)   |
+                                  |  - HttpOnly Cookie (Auth & Refresh Token: Lax) |
+                                  |  - Dual-Language (EN/TR) & Light/Dark Themes   |
+                                  |  - TanStack Query v5 & Recharts                |
+                                  +-----------------------+------------------------+
+                                                          | REST API / JSON (English)
+                                                          v
                                   +------------------------------------------------+
                                   |   .NET 10 Web API Gateway / Global Controllers |
                                   |  - Tenant Resolver Middleware                  |
@@ -32,10 +56,11 @@
                  |                                        |                                        |
                  v                                        v                                        v
   +------------------------------+        +------------------------------+        +------------------------------+
-  |    Application Layer (CQRS)  |        |    Hangfire Worker Engine    |        |    Infrastructure Services   |
-  |  - MediatR [12.4.0, 13.0.0)  |        |  - Scoped TenantJobFilter    |        |  - Atomic Quota & Reconcile  |
-  |  - FluentValidation          |        |  - Idempotent Job Ledger     |        |  - Structured AI Adapters    |
-  |  - Scoped Tenant Behavior    |        |  - Resilience (Polly/Http)   |        |  - Serilog / OpenTelemetry   |
+  |    Application Layer (CQRS)  |        | Scheduled Job Engine (.NET)  |        |    Infrastructure Services   |
+  |  - MediatR CQRS Pipelines    |        |  - ScheduledKeywordWorker    |        |  - Atomic Quota & Reconcile  |
+  |  - FluentValidation          |        |  - Channel BackgroundQueue   |        |  - 4-Engine GEO Adapters     |
+  |  - Scoped Tenant Behavior    |        |  - Scoped ITenantContext     |        |  - AngleSharp DOM Crawler    |
+  |  - RFC 7807 Error Responses  |        |  - Subscription Expiry Sweep |        |  - Princeton GEO AI Writer   |
   +--------------+---------------+        +--------------+---------------+        +--------------+---------------+
                  |                                       |                                       |
                  +---------------------------------------+---------------------------------------+
