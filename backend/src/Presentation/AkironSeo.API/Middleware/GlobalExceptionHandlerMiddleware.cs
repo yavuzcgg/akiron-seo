@@ -42,6 +42,7 @@ public class GlobalExceptionHandlerMiddleware
             KeyNotFoundException => (int)HttpStatusCode.NotFound,
             UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
             ConflictException => (int)HttpStatusCode.Conflict,
+            QuotaExceededException => (int)HttpStatusCode.PaymentRequired,
             ValidationException => (int)HttpStatusCode.BadRequest,
             UnsafeOutboundUrlException => (int)HttpStatusCode.BadRequest,
             InvalidOperationException => (int)HttpStatusCode.BadRequest,
@@ -58,6 +59,7 @@ public class GlobalExceptionHandlerMiddleware
             {
                 400 => "Validation failed",
                 401 => "Authentication failed",
+                402 => "Monthly quota exceeded",
                 404 => "Resource not found",
                 409 => "Resource conflict",
                 500 => "An unexpected server error occurred.",

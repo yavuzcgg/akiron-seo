@@ -1,5 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using AkironSeo.Application.Common;
+using AkironSeo.Application.Common.Exceptions;
 using AkironSeo.Application.Common.Interfaces;
 using AkironSeo.Domain.Entities.TenantScoped;
 using AkironSeo.Domain.Enums;
@@ -12,15 +14,18 @@ public class AiContentWriterService : IAiContentWriterService
     private readonly IAkironDbContext _dbContext;
     private readonly IApiKeyEncryptionService _encryptionService;
     private readonly HttpClient _httpClient;
+    private readonly IQuotaLedgerService _quotaLedgerService;
 
     public AiContentWriterService(
         IAkironDbContext dbContext,
         IApiKeyEncryptionService encryptionService,
-        HttpClient httpClient)
+        HttpClient httpClient,
+        IQuotaLedgerService quotaLedgerService)
     {
         _dbContext = dbContext;
         _encryptionService = encryptionService;
         _httpClient = httpClient;
+        _quotaLedgerService = quotaLedgerService;
     }
 
     public async Task<AiContentPlanDto> GenerateGeoContentAsync(
@@ -34,59 +39,75 @@ public class AiContentWriterService : IAiContentWriterService
             throw new InvalidOperationException("Website not found.");
         }
 
-        var domain = website.DomainUrl;
-        var brandName = website.Name;
-
-        // Try getting BYOK Gemini key
-        var apiKeyEntity = await _dbContext.EncryptedTenantApiKeys
-            .FirstOrDefaultAsync(k => k.TenantId == tenantId && k.Provider == AiProviderEnum.Gemini && k.IsActive, cancellationToken);
-
-        string generatedMarkdown = "";
-        long tokensSpent = 1250; // Estimated default token count
-
-        if (apiKeyEntity != null && !string.IsNullOrEmpty(apiKeyEntity.EncryptedKey))
+        var jobId = $"aicontent-{websiteId}-{Guid.NewGuid():N}";
+        var reserved = await _quotaLedgerService.ReserveQuotaAsync(tenantId, jobId, QuotaCostConstants.AiContentCost, cancellationToken);
+        if (!reserved)
         {
-            try
-            {
-                var decryptedKey = _encryptionService.Decrypt(apiKeyEntity.EncryptedKey);
-                generatedMarkdown = await CallGeminiForContentAsync(domain, brandName, targetKeyword, missingPath, decryptedKey, cancellationToken);
-            }
-            catch
-            {
-                // Fallback if call fails
-            }
+            throw new QuotaExceededException($"Insufficient quota for AI Content generation. Required tokens: {QuotaCostConstants.AiContentCost}.");
         }
 
-        if (string.IsNullOrWhiteSpace(generatedMarkdown))
+        try
         {
-            generatedMarkdown = GenerateFallbackGeoArticle(domain, brandName, targetKeyword, missingPath);
+            var domain = website.DomainUrl;
+            var brandName = website.Name;
+
+            // Try getting BYOK Gemini key
+            var apiKeyEntity = await _dbContext.EncryptedTenantApiKeys
+                .FirstOrDefaultAsync(k => k.TenantId == tenantId && k.Provider == AiProviderEnum.Gemini && k.IsActive, cancellationToken);
+
+            string generatedMarkdown = "";
+            long tokensSpent = 1250; // Estimated default token count
+
+            if (apiKeyEntity != null && !string.IsNullOrEmpty(apiKeyEntity.EncryptedKey))
+            {
+                try
+                {
+                    var decryptedKey = _encryptionService.Decrypt(apiKeyEntity.EncryptedKey);
+                    generatedMarkdown = await CallGeminiForContentAsync(domain, brandName, targetKeyword, missingPath, decryptedKey, cancellationToken);
+                }
+                catch
+                {
+                    // Fallback if call fails
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(generatedMarkdown))
+            {
+                generatedMarkdown = GenerateFallbackGeoArticle(domain, brandName, targetKeyword, missingPath);
+            }
+
+            // Save AiContentPlan entity
+            var contentPlan = new AiContentPlan
+            {
+                TenantId = tenantId,
+                WebsiteId = websiteId,
+                TargetKeyword = targetKeyword,
+                GeneratedMarkdownContent = generatedMarkdown,
+                Status = ContentStatusEnum.Completed,
+                TokensSpent = tokensSpent,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _dbContext.AiContentPlans.Add(contentPlan);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _quotaLedgerService.CommitQuotaAsync(jobId, QuotaCostConstants.AiContentCost, cancellationToken);
+
+            return new AiContentPlanDto(
+                Id: contentPlan.Id,
+                WebsiteId: websiteId,
+                TargetKeyword: targetKeyword,
+                MissingPath: missingPath,
+                GeneratedMarkdownContent: generatedMarkdown,
+                Status: contentPlan.Status,
+                TokensSpent: tokensSpent,
+                CreatedAt: contentPlan.CreatedAt
+            );
         }
-
-        // Save AiContentPlan entity
-        var contentPlan = new AiContentPlan
+        catch
         {
-            TenantId = tenantId,
-            WebsiteId = websiteId,
-            TargetKeyword = targetKeyword,
-            GeneratedMarkdownContent = generatedMarkdown,
-            Status = ContentStatusEnum.Completed,
-            TokensSpent = tokensSpent,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _dbContext.AiContentPlans.Add(contentPlan);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return new AiContentPlanDto(
-            Id: contentPlan.Id,
-            WebsiteId: websiteId,
-            TargetKeyword: targetKeyword,
-            MissingPath: missingPath,
-            GeneratedMarkdownContent: generatedMarkdown,
-            Status: contentPlan.Status,
-            TokensSpent: tokensSpent,
-            CreatedAt: contentPlan.CreatedAt
-        );
+            await _quotaLedgerService.RefundQuotaAsync(jobId, CancellationToken.None);
+            throw;
+        }
     }
 
     private async Task<string> CallGeminiForContentAsync(

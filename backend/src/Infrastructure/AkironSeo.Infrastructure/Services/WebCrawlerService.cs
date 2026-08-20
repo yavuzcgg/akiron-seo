@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using AkironSeo.Application.Common;
+using AkironSeo.Application.Common.Exceptions;
 using AkironSeo.Application.Common.Interfaces;
 using AkironSeo.Application.Common.Security;
 using AkironSeo.Domain.Entities.TenantScoped;
@@ -13,15 +15,18 @@ public class WebCrawlerService : IWebCrawlerService
     private readonly IAkironDbContext _dbContext;
     private readonly HttpClient _httpClient;
     private readonly IRobotsTxtAuditorService _robotsTxtAuditorService;
+    private readonly IQuotaLedgerService _quotaLedgerService;
 
     public WebCrawlerService(
         IAkironDbContext dbContext,
         HttpClient httpClient,
-        IRobotsTxtAuditorService robotsTxtAuditorService)
+        IRobotsTxtAuditorService robotsTxtAuditorService,
+        IQuotaLedgerService quotaLedgerService)
     {
         _dbContext = dbContext;
         _httpClient = httpClient;
         _robotsTxtAuditorService = robotsTxtAuditorService;
+        _quotaLedgerService = quotaLedgerService;
     }
 
     public async Task<SeoAudit> CrawlAndAuditWebsiteAsync(Guid websiteId, Guid tenantId, CancellationToken cancellationToken = default)
@@ -44,6 +49,16 @@ public class WebCrawlerService : IWebCrawlerService
         };
         _dbContext.CrawlJobs.Add(crawlJob);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var jobId = $"crawl-{crawlJob.Id}";
+        var reserved = await _quotaLedgerService.ReserveQuotaAsync(tenantId, jobId, QuotaCostConstants.CrawlCost, cancellationToken);
+        if (!reserved)
+        {
+            crawlJob.Status = CrawlStatusEnum.Failed;
+            crawlJob.CompletedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            throw new QuotaExceededException($"Insufficient quota for website crawl. Required tokens: {QuotaCostConstants.CrawlCost}.");
+        }
 
         int totalPages = 0;
 
@@ -136,11 +151,13 @@ public class WebCrawlerService : IWebCrawlerService
             _dbContext.SiteSnapshots.Add(snapshot);
 
             await _dbContext.SaveChangesAsync(cancellationToken);
+            await _quotaLedgerService.CommitQuotaAsync(jobId, QuotaCostConstants.CrawlCost, cancellationToken);
 
             return seoAudit;
         }
         catch
         {
+            await _quotaLedgerService.RefundQuotaAsync(jobId, CancellationToken.None);
             crawlJob.Status = CrawlStatusEnum.Failed;
             crawlJob.CompletedAt = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync(cancellationToken);

@@ -4,7 +4,7 @@ import { useApp } from "@/components/providers";
 import { apiClient } from "@/lib/apiClient";
 import { queryKeys } from "@/lib/queryKeys";
 import { useQuery } from "@tanstack/react-query";
-import { Gauge } from "lucide-react";
+import { CheckCircle2, Gauge } from "lucide-react";
 
 export default function TenantQuotaCard() {
   const { t } = useApp();
@@ -48,7 +48,15 @@ export default function TenantQuotaCard() {
         <div><dt className="text-muted">{t("periodEnds")}</dt><dd className="font-semibold text-foreground">{new Date(quota.periodEnd).toLocaleDateString()}</dd></div>
       </dl>
 
-      {!quota.enforcementEnabled && <p className="rounded-lg border border-warning/20 bg-warning/10 p-3 text-xs text-warning" role="note">{t("notEnforced")}</p>}
+      {quota.enforcementEnabled ? (
+        <p className="flex items-center gap-1.5 rounded-lg border border-success/20 bg-success/10 p-2.5 text-xs font-medium text-success" role="status">
+          <CheckCircle2 size={14} className="shrink-0" aria-hidden /> {t("enforcedActive")}
+        </p>
+      ) : (
+        <p className="rounded-lg border border-warning/20 bg-warning/10 p-3 text-xs text-warning" role="note">
+          {t("notEnforced")}
+        </p>
+      )}
     </section>
   );
 }

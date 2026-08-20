@@ -45,7 +45,7 @@ public class QuotaLedgerService : IQuotaLedgerService
                 RemainingTokens: 0,
                 PeriodStart: periodStart,
                 PeriodEnd: periodStart.AddMonths(1),
-                EnforcementEnabled: false);
+                EnforcementEnabled: true);
         }
 
         return new TenantQuotaStatusDto(
@@ -55,7 +55,7 @@ public class QuotaLedgerService : IQuotaLedgerService
             RemainingTokens: Math.Max(subscription.MonthlyLimitTokens - subscription.UsedTokens, 0),
             PeriodStart: subscription.CurrentPeriodStart,
             PeriodEnd: subscription.CurrentPeriodEnd,
-            EnforcementEnabled: false);
+            EnforcementEnabled: true);
     }
 
     /// <summary>
@@ -139,6 +139,74 @@ public class QuotaLedgerService : IQuotaLedgerService
                 }
 
                 throw;
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return true;
+        });
+    }
+
+    /// <summary>
+    /// Commits a reserved quota, permanently marking the reservation as Committed.
+    /// If actualTokens is specified and differs from EstimatedTokens, adjusts UsedTokens accordingly.
+    /// Safe to call repeatedly: idempotent on Committed status.
+    /// </summary>
+    public async Task<bool> CommitQuotaAsync(string jobId, long? actualTokens = null, CancellationToken cancellationToken = default)
+    {
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+            var reservation = await _dbContext.QuotaReservations
+                .IgnoreQueryFilters()
+                .Where(r => r.JobId == jobId)
+                .Select(r => new { r.SubscriptionId, r.EstimatedTokens, r.Status })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (reservation is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
+
+            if (reservation.Status == ReservationStatusEnum.Refunded)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
+
+            if (reservation.Status == ReservationStatusEnum.Committed)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                return true;
+            }
+
+            var claimedRows = await _dbContext.QuotaReservations
+                .IgnoreQueryFilters()
+                .Where(r => r.JobId == jobId && r.Status == ReservationStatusEnum.Reserved)
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(r => r.Status, ReservationStatusEnum.Committed),
+                    cancellationToken);
+
+            if (claimedRows == 0)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
+
+            if (actualTokens.HasValue && actualTokens.Value != reservation.EstimatedTokens)
+            {
+                var difference = actualTokens.Value - reservation.EstimatedTokens;
+                await _dbContext.Subscriptions
+                    .IgnoreQueryFilters()
+                    .Where(s => s.Id == reservation.SubscriptionId)
+                    .ExecuteUpdateAsync(
+                        setters => setters.SetProperty(
+                            s => s.UsedTokens,
+                            s => s.UsedTokens + difference < 0 ? 0 : s.UsedTokens + difference),
+                        cancellationToken);
             }
 
             await transaction.CommitAsync(cancellationToken);

@@ -210,6 +210,78 @@ public class QuotaLedgerTests
         }
     }
 
+    [Fact]
+    public async Task CommitQuotaAsync_ShouldTransitionStatusToCommittedAndAdjustTokens()
+    {
+        var tenantId = Guid.NewGuid();
+        var jobId = NewJobId();
+        await SeedSubscriptionAsync(tenantId, monthlyLimitTokens: 1000);
+
+        await using (var dbContext = _fixture.CreateDbContext(tenantId))
+        {
+            var ledgerService = new QuotaLedgerService(dbContext);
+            await ledgerService.ReserveQuotaAsync(tenantId, jobId, estimatedTokens: 300);
+        }
+
+        // Commit with actualTokens = 250 (50 fewer tokens than estimated 300)
+        await using (var dbContext = _fixture.CreateDbContext(Guid.Empty))
+        {
+            var ledgerService = new QuotaLedgerService(dbContext);
+            var committed = await ledgerService.CommitQuotaAsync(jobId, actualTokens: 250);
+            Assert.True(committed);
+        }
+
+        await using (var dbContext = _fixture.CreateDbContext(tenantId))
+        {
+            var reservation = await dbContext.QuotaReservations.FirstAsync(r => r.JobId == jobId);
+            var subscription = await dbContext.Subscriptions.FirstAsync(s => s.TenantId == tenantId);
+
+            Assert.Equal(ReservationStatusEnum.Committed, reservation.Status);
+            Assert.Equal(250, subscription.UsedTokens);
+        }
+    }
+
+    [Fact]
+    public async Task CommitQuotaAsync_ShouldBeIdempotent()
+    {
+        var tenantId = Guid.NewGuid();
+        var jobId = NewJobId();
+        await SeedSubscriptionAsync(tenantId, monthlyLimitTokens: 1000);
+
+        await using (var dbContext = _fixture.CreateDbContext(tenantId))
+        {
+            var ledgerService = new QuotaLedgerService(dbContext);
+            await ledgerService.ReserveQuotaAsync(tenantId, jobId, estimatedTokens: 200);
+        }
+
+        foreach (var _ in Enumerable.Range(0, 3))
+        {
+            await using var dbContext = _fixture.CreateDbContext(Guid.Empty);
+            var ledgerService = new QuotaLedgerService(dbContext);
+            Assert.True(await ledgerService.CommitQuotaAsync(jobId));
+        }
+
+        await using (var dbContext = _fixture.CreateDbContext(tenantId))
+        {
+            var reservation = await dbContext.QuotaReservations.FirstAsync(r => r.JobId == jobId);
+            Assert.Equal(ReservationStatusEnum.Committed, reservation.Status);
+        }
+    }
+
+    [Fact]
+    public async Task GetTenantQuotaStatusAsync_ShouldReportEnforcementEnabled()
+    {
+        var tenantId = Guid.NewGuid();
+        await SeedSubscriptionAsync(tenantId, monthlyLimitTokens: 500);
+
+        await using var dbContext = _fixture.CreateDbContext(tenantId);
+        var ledgerService = new QuotaLedgerService(dbContext);
+
+        var status = await ledgerService.GetTenantQuotaStatusAsync(tenantId);
+        Assert.True(status.EnforcementEnabled);
+        Assert.Equal(500, status.MonthlyTokenLimit);
+    }
+
     private static string NewJobId() => $"job-{Guid.NewGuid()}";
 
     private async Task SeedSubscriptionAsync(Guid tenantId, long monthlyLimitTokens)

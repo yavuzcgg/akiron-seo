@@ -47,6 +47,8 @@ builder.Services.AddScoped<IKeywordRankTrackerService, KeywordRankTrackerService
 // GEO adapters are resolved as a set; adding a provider here is all a new engine needs.
 builder.Services.AddScoped<IGeoEngineAdapter, PerplexitySonarAdapter>();
 builder.Services.AddScoped<IGeoEngineAdapter, GeminiGroundingAdapter>();
+builder.Services.AddScoped<IGeoEngineAdapter, OpenAiSearchAdapter>();
+builder.Services.AddScoped<IGeoEngineAdapter, AnthropicAdapter>();
 builder.Services.AddScoped<IGeoEngineService, GeoEngineService>();
 builder.Services.AddScoped<IQuotaLedgerService, QuotaLedgerService>();
 builder.Services.AddScoped<ICompetitorService, CompetitorService>();
@@ -59,6 +61,8 @@ builder.Services.AddScoped<IDnsLookupService, DnsLookupService>();
 builder.Services.AddSingleton<ILookupClient>(_ => new LookupClient());
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddSingleton<AuthCookieManager>();
+builder.Services.AddSingleton<IBackgroundJobQueue, BackgroundJobQueue>();
+builder.Services.AddHostedService<ScheduledKeywordWorker>();
 
 // Register MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(GetWebsitesQuery).Assembly));
@@ -220,68 +224,62 @@ app.UseRateLimiter();
 // Failures are intentionally fatal: booting with an incomplete schema would fail every request.
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<AkironDbContext>();
-    await db.Database.MigrateAsync();
-    await DbInitializer.SeedAsync(db, seedSuperAdmin: app.Environment.IsDevelopment());
+    var services = scope.ServiceProvider;
+    try
+    {
+        var db = services.GetRequiredService<AkironDbContext>();
+        Log.Information("Applying pending migrations...");
+        await db.Database.MigrateAsync();
+        Log.Information("Database migrations applied successfully.");
+
+        // Seeds are deliberately restricted: test/demo accounts exist only in Development.
+        await DbInitializer.SeedAsync(db, seedSuperAdmin: app.Environment.IsDevelopment());
+        Log.Information("Database baseline seed complete.");
+    }
+    catch (Exception ex)
+    {
+        Log.Fatal(ex, "Database migration/seed failed. The application will terminate.");
+        throw;
+    }
 }
 
-app.UseAuthentication();
-app.UseAuthorization();
-app.UseMiddleware<TenantResolverMiddleware>();
-
-if (app.Environment.IsDevelopment())
+// Health Check Probe
+app.MapGet("/health", () => Results.Ok(new
 {
-    app.MapOpenApi();
-}
+    Status = "Healthy",
+    Timestamp = DateTime.UtcNow,
+    Service = "AkironSeo.API"
+}));
 
-// Readiness probe for container orchestration. Verifies the database is reachable,
-// which is what "ready to serve traffic" actually means for this API.
-app.MapGet("/health", async (AkironDbContext db, CancellationToken cancellationToken) =>
-{
-    var canConnect = await db.Database.CanConnectAsync(cancellationToken);
-    return canConnect
-        ? Results.Ok(new { Status = "Healthy" })
-        : Results.Json(new { Status = "Unhealthy" }, statusCode: StatusCodes.Status503ServiceUnavailable);
-}).AllowAnonymous();
-
-// ----------------------------------------------------
-// MAP MODULAR ENDPOINTS
-// ----------------------------------------------------
-app.MapAuthEndpoints();                  // AllowAnonymous (configured inside)
+// Map All Endpoint Modules
+app.MapAuthEndpoints();
 app.MapWebsiteEndpoints();
-app.MapTenantEndpoints();
-app.MapAiEndpoints();
-app.MapKeywordEndpoints();
 app.MapGeoEndpoints();
+app.MapAiEndpoints();
 app.MapCompetitorEndpoints();
-app.MapQuotaEndpoints();
-app.MapNotificationEndpoints();
 app.MapContentEndpoints();
 app.MapAdminEndpoints();
+app.MapNotificationEndpoints();
 app.MapReportEndpoints();
 app.MapGscEndpoints();
+app.MapKeywordEndpoints();
+app.MapTenantEndpoints();
+app.MapQuotaEndpoints();
 
 app.Run();
 
 static RateLimitPartition<string> CreateAuthLimiter(HttpContext context, int permitLimit, TimeSpan window)
 {
-    var partitionKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-    return RateLimitPartition.GetFixedWindowLimiter(
-        partitionKey,
-        _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = permitLimit,
-            Window = window,
-            QueueLimit = 0,
-            AutoReplenishment = true
-        });
+    var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+    {
+        PermitLimit = permitLimit,
+        Window = window,
+        QueueLimit = 0
+    });
 }
 
-static async Task WriteAuthenticationProblemAsync(
-    HttpContext context,
-    int statusCode,
-    string title,
-    string detail)
+static async Task WriteAuthenticationProblemAsync(HttpContext context, int statusCode, string title, string detail)
 {
     if (context.Response.HasStarted)
     {
@@ -290,6 +288,7 @@ static async Task WriteAuthenticationProblemAsync(
 
     context.Response.StatusCode = statusCode;
     context.Response.ContentType = "application/problem+json";
+
     var problem = new ProblemDetails
     {
         Status = statusCode,
@@ -298,11 +297,15 @@ static async Task WriteAuthenticationProblemAsync(
         Instance = context.Request.Path,
         Extensions =
         {
-            ["correlationId"] = context.Response.Headers["X-Correlation-ID"].ToString(),
-            ["timestamp"] = DateTime.UtcNow.ToString("O")
+            ["correlationId"] = context.Response.Headers.TryGetValue("X-Correlation-ID", out var cid)
+                ? cid.ToString()
+                : Guid.NewGuid().ToString("N"),
+            ["timestamp"] = DateTime.UtcNow.ToString("o")
         }
     };
+
     await context.Response.WriteAsJsonAsync(problem, context.RequestAborted);
 }
 
-public partial class Program;
+// Make Program public for Testcontainers Integration Tests (WebApplicationFactory)
+public partial class Program { }

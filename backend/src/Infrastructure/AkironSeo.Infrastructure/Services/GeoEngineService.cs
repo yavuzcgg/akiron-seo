@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using AkironSeo.Application.Common;
+using AkironSeo.Application.Common.Exceptions;
 using AkironSeo.Application.Common.Interfaces;
 using AkironSeo.Domain.Entities.TenantScoped;
 using AkironSeo.Domain.Enums;
@@ -16,6 +17,7 @@ public class GeoEngineService : IGeoEngineService
     private readonly IApiKeyEncryptionService _encryptionService;
     private readonly ICitationVerificationService _citationVerifier;
     private readonly IEnumerable<IGeoEngineAdapter> _adapters;
+    private readonly IQuotaLedgerService _quotaLedgerService;
     private readonly ILogger<GeoEngineService> _logger;
 
     public GeoEngineService(
@@ -23,12 +25,14 @@ public class GeoEngineService : IGeoEngineService
         IApiKeyEncryptionService encryptionService,
         ICitationVerificationService citationVerifier,
         IEnumerable<IGeoEngineAdapter> adapters,
+        IQuotaLedgerService quotaLedgerService,
         ILogger<GeoEngineService> logger)
     {
         _dbContext = dbContext;
         _encryptionService = encryptionService;
         _citationVerifier = citationVerifier;
         _adapters = adapters;
+        _quotaLedgerService = quotaLedgerService;
         _logger = logger;
     }
 
@@ -66,129 +70,145 @@ public class GeoEngineService : IGeoEngineService
             }
         }
 
-        // Resolve each adapter's tenant BYOK key generically from its declared provider.
-        var activeKeys = await _dbContext.EncryptedTenantApiKeys
-            .Where(k => k.TenantId == tenantId && k.IsActive)
-            .ToListAsync(cancellationToken);
-
-        // Multi-sample iteration engine (3 sample runs with jitter for Mention Rate %)
-        const int sampleCount = 3;
-        var engineCitationsMap = new Dictionary<string, List<GeoAdapterCitation>>();
-
-        var adapters = _adapters
-            .Select(adapter =>
-            {
-                var entity = activeKeys.FirstOrDefault(k => k.Provider == adapter.Provider);
-                var key = entity is not null && !string.IsNullOrEmpty(entity.EncryptedKey)
-                    ? DecryptKeySafe(entity.EncryptedKey)
-                    : string.Empty;
-                return (Adapter: adapter, Key: key);
-            })
-            .ToList();
-
-        var random = new Random();
-
-        for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++)
+        var jobId = $"geo-{websiteId}-{Guid.NewGuid():N}";
+        var reserved = await _quotaLedgerService.ReserveQuotaAsync(tenantId, jobId, QuotaCostConstants.GeoAnalysisCost, cancellationToken);
+        if (!reserved)
         {
-            if (sampleIndex > 0)
-            {
-                // Jitter delay between sample iterations (200 - 400ms)
-                await Task.Delay(random.Next(200, 400), cancellationToken);
-            }
+            throw new QuotaExceededException($"Insufficient quota for GEO intelligence analysis. Required tokens: {QuotaCostConstants.GeoAnalysisCost}.");
+        }
 
-            foreach (var (adapter, key) in adapters)
-            {
-                var citation = await adapter.QueryEngineAsync(brandName, domain, promptText, key, cancellationToken);
+        try
+        {
+            // Resolve each adapter's tenant BYOK key generically from its declared provider.
+            var activeKeys = await _dbContext.EncryptedTenantApiKeys
+                .Where(k => k.TenantId == tenantId && k.IsActive)
+                .ToListAsync(cancellationToken);
 
-                if (!engineCitationsMap.ContainsKey(adapter.EngineName))
+            // Multi-sample iteration engine (3 sample runs with jitter for Mention Rate %)
+            const int sampleCount = 3;
+            var engineCitationsMap = new Dictionary<string, List<GeoAdapterCitation>>();
+
+            var adapters = _adapters
+                .Select(adapter =>
                 {
-                    engineCitationsMap[adapter.EngineName] = new List<GeoAdapterCitation>();
+                    var entity = activeKeys.FirstOrDefault(k => k.Provider == adapter.Provider);
+                    var key = entity is not null && !string.IsNullOrEmpty(entity.EncryptedKey)
+                        ? DecryptKeySafe(entity.EncryptedKey)
+                        : string.Empty;
+                    return (Adapter: adapter, Key: key);
+                })
+                .ToList();
+
+            var random = new Random();
+
+            for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++)
+            {
+                if (sampleIndex > 0)
+                {
+                    // Jitter delay between sample iterations (200 - 400ms)
+                    await Task.Delay(random.Next(200, 400), cancellationToken);
                 }
-                engineCitationsMap[adapter.EngineName].Add(citation);
+
+                foreach (var (adapter, key) in adapters)
+                {
+                    var citation = await adapter.QueryEngineAsync(brandName, domain, promptText, key, cancellationToken);
+
+                    if (!engineCitationsMap.ContainsKey(adapter.EngineName))
+                    {
+                        engineCitationsMap[adapter.EngineName] = new List<GeoAdapterCitation>();
+                    }
+                    engineCitationsMap[adapter.EngineName].Add(citation);
+                }
             }
-        }
 
-        // Process citations, calculate Mention Rate %, and verify URLs
-        var finalCitations = new List<AiEngineCitationDto>();
-        int liveMentionCount = 0;
-        int liveEngineCount = 0;
+            // Process citations, calculate Mention Rate %, and verify URLs
+            var finalCitations = new List<AiEngineCitationDto>();
+            int liveMentionCount = 0;
+            int liveEngineCount = 0;
 
-        foreach (var (engineName, citations) in engineCitationsMap)
-        {
-            var representativeCitation = citations.FirstOrDefault(c => c.IsMentioned) ?? citations.First();
-
-            // An engine that was never queried is no evidence either way, so it is left out
-            // of the rate maths instead of counting as a zero.
-            bool isLive = representativeCitation.DataSource == DataSources.Live;
-
-            int mentionCount = citations.Count(c => c.IsMentioned);
-            int mentionRate = isLive ? (int)Math.Round((double)mentionCount / sampleCount * 100) : 0;
-
-            if (isLive)
+            foreach (var (engineName, citations) in engineCitationsMap)
             {
-                liveEngineCount++;
-                liveMentionCount += mentionCount;
+                var representativeCitation = citations.FirstOrDefault(c => c.IsMentioned) ?? citations.First();
+
+                // An engine that was never queried is no evidence either way, so it is left out
+                // of the rate maths instead of counting as a zero.
+                bool isLive = representativeCitation.DataSource == DataSources.Live;
+
+                int mentionCount = citations.Count(c => c.IsMentioned);
+                int mentionRate = isLive ? (int)Math.Round((double)mentionCount / sampleCount * 100) : 0;
+
+                if (isLive)
+                {
+                    liveEngineCount++;
+                    liveMentionCount += mentionCount;
+                }
+
+                // Verify citation URL if present
+                string citationStatus = "Valid";
+                bool isGoldOpportunity = false;
+                string citationUrl = representativeCitation.CitationUrl;
+
+                if (!string.IsNullOrWhiteSpace(citationUrl))
+                {
+                    var verifyResult = await _citationVerifier.VerifyCitationUrlAsync(
+                        citationUrl, domain, websiteId, tenantId, promptText, engineName, cancellationToken);
+
+                    citationStatus = verifyResult.Status.ToString();
+                    isGoldOpportunity = verifyResult.IsGoldOpportunity;
+                }
+
+                finalCitations.Add(new AiEngineCitationDto(
+                    EngineName: engineName,
+                    IsMentioned: isLive && mentionCount > 0,
+                    Sentiment: isLive ? (mentionCount > 0 ? "Positive" : "NotMentioned") : "Unknown",
+                    CitationUrl: citationUrl,
+                    SampleAiResponseSnippet: representativeCitation.SampleResponseSnippet,
+                    MentionRatePercentage: mentionRate,
+                    CitationStatus: citationStatus,
+                    IsGoldOpportunity: isGoldOpportunity,
+                    DataSource: representativeCitation.DataSource
+                ));
             }
 
-            // Verify citation URL if present
-            string citationStatus = "Valid";
-            bool isGoldOpportunity = false;
-            string citationUrl = representativeCitation.CitationUrl;
+            int overallMentionRate = liveEngineCount > 0
+                ? (int)Math.Round((double)liveMentionCount / (liveEngineCount * sampleCount) * 100)
+                : 0;
 
-            if (!string.IsNullOrWhiteSpace(citationUrl))
+            // Share of voice is only meaningful once at least one engine actually answered.
+            int shareOfVoiceScore = liveEngineCount > 0 ? Math.Min(overallMentionRate + 15, 100) : 0;
+
+            if (liveEngineCount == 0)
             {
-                var verifyResult = await _citationVerifier.VerifyCitationUrlAsync(
-                    citationUrl, domain, websiteId, tenantId, promptText, engineName, cancellationToken);
-
-                citationStatus = verifyResult.Status.ToString();
-                isGoldOpportunity = verifyResult.IsGoldOpportunity;
+                _logger.LogInformation(
+                    "GEO analysis for website {WebsiteId} produced no live engine results; no provider key is configured or every call failed.",
+                    websiteId);
             }
 
-            finalCitations.Add(new AiEngineCitationDto(
-                EngineName: engineName,
-                IsMentioned: isLive && mentionCount > 0,
-                Sentiment: isLive ? (mentionCount > 0 ? "Positive" : "NotMentioned") : "Unknown",
-                CitationUrl: citationUrl,
-                SampleAiResponseSnippet: representativeCitation.SampleResponseSnippet,
-                MentionRatePercentage: mentionRate,
-                CitationStatus: citationStatus,
-                IsGoldOpportunity: isGoldOpportunity,
-                DataSource: representativeCitation.DataSource
-            ));
+            var recommendations = GenerateRecommendations(finalCitations, domain, liveEngineCount);
+
+            var result = new GeoAnalysisResultDto(
+                WebsiteId: websiteId,
+                DomainUrl: domain,
+                ShareOfVoiceScore: shareOfVoiceScore,
+                OverallMentionRatePercentage: overallMentionRate,
+                EngineCitations: finalCitations,
+                OptimizationRecommendations: recommendations,
+                AnalyzedAt: DateTime.UtcNow,
+                IsCached: false,
+                LiveEngineCount: liveEngineCount
+            );
+
+            // Save DB record
+            await SaveGeoAnalysisRecordsAsync(websiteId, tenantId, result, cancellationToken);
+            await _quotaLedgerService.CommitQuotaAsync(jobId, QuotaCostConstants.GeoAnalysisCost, cancellationToken);
+
+            return result;
         }
-
-        int overallMentionRate = liveEngineCount > 0
-            ? (int)Math.Round((double)liveMentionCount / (liveEngineCount * sampleCount) * 100)
-            : 0;
-
-        // Share of voice is only meaningful once at least one engine actually answered.
-        int shareOfVoiceScore = liveEngineCount > 0 ? Math.Min(overallMentionRate + 15, 100) : 0;
-
-        if (liveEngineCount == 0)
+        catch
         {
-            _logger.LogInformation(
-                "GEO analysis for website {WebsiteId} produced no live engine results; no provider key is configured or every call failed.",
-                websiteId);
+            await _quotaLedgerService.RefundQuotaAsync(jobId, CancellationToken.None);
+            throw;
         }
-
-        var recommendations = GenerateRecommendations(finalCitations, domain, liveEngineCount);
-
-        var result = new GeoAnalysisResultDto(
-            WebsiteId: websiteId,
-            DomainUrl: domain,
-            ShareOfVoiceScore: shareOfVoiceScore,
-            OverallMentionRatePercentage: overallMentionRate,
-            EngineCitations: finalCitations,
-            OptimizationRecommendations: recommendations,
-            AnalyzedAt: DateTime.UtcNow,
-            IsCached: false,
-            LiveEngineCount: liveEngineCount
-        );
-
-        // Save DB record
-        await SaveGeoAnalysisRecordsAsync(websiteId, tenantId, result, cancellationToken);
-
-        return result;
     }
 
     private static List<string> GenerateRecommendations(
