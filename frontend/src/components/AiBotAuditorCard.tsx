@@ -1,6 +1,7 @@
 "use client";
 
 import { apiClient, RobotsTxtAudit } from "@/lib/apiClient";
+import { useApp } from "@/components/providers";
 import { getErrorMessage } from "@/lib/errors";
 import { Bot, Search } from "lucide-react";
 import { useState } from "react";
@@ -8,10 +9,10 @@ import { useState } from "react";
 interface CardProps {
   websiteId: string;
   websiteName: string;
-  tenantId?: string;
 }
 
-export default function AiBotAuditorCard({ websiteId, websiteName, tenantId }: CardProps) {
+export default function AiBotAuditorCard({ websiteId, websiteName }: CardProps) {
+  const { t } = useApp();
   const [audit, setAudit] = useState<RobotsTxtAudit | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +24,7 @@ export default function AiBotAuditorCard({ websiteId, websiteName, tenantId }: C
       const data = await apiClient.websites.getRobotsTxtAudit(websiteId);
       setAudit(data);
     } catch (err: unknown) {
-      setError(getErrorMessage(err, "Failed to audit robots.txt."));
+      setError(getErrorMessage(err, t("robotsAuditFailed")));
     } finally {
       setLoading(false);
     }
@@ -34,10 +35,10 @@ export default function AiBotAuditorCard({ websiteId, websiteName, tenantId }: C
       <div className="flex items-center justify-between">
         <div>
           <h3 className="flex items-center gap-2 text-base font-bold text-foreground">
-            <Bot size={16} className="text-primary" aria-hidden /> AI Bot Auditor (robots.txt)
+            <Bot size={16} className="text-primary" aria-hidden /> {t("aiBotAuditor")}
           </h3>
           <p className="text-xs text-muted">
-            Check whether LLM crawlers (GPTBot, ClaudeBot, PerplexityBot) may index {websiteName}.
+            {t("aiBotDescription")} ({websiteName})
           </p>
         </div>
 
@@ -46,7 +47,7 @@ export default function AiBotAuditorCard({ websiteId, websiteName, tenantId }: C
           disabled={loading}
           className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3.5 py-1.5 text-xs font-semibold text-muted transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Search size={13} aria-hidden /> {loading ? "Checking…" : "Check Crawlers"}
+          <Search size={13} aria-hidden /> {loading ? t("checkingCrawlers") : t("checkCrawlers")}
         </button>
       </div>
 
@@ -81,14 +82,14 @@ export default function AiBotAuditorCard({ websiteId, websiteName, tenantId }: C
                       : "bg-slate-500/10 text-muted border border-slate-500/20"
                   }`}
                 >
-                  {bot.status === "Allowed" ? "✓ Allowed" : bot.status === "Disallowed" ? "✕ Blocked" : "⚪ Default"}
+                  {bot.status === "Allowed" ? `✓ ${t("allowed")}` : bot.status === "Disallowed" ? `✕ ${t("blocked")}` : `⚪ ${t("defaultStatus")}`}
                 </span>
               </div>
             ))}
           </div>
 
           <div className="text-[11px] text-subtle text-right pt-1">
-            Status based on <code className="text-muted">{audit.domainUrl}/robots.txt</code>
+            {t("robotsStatusBasedOn")} <code className="text-muted">{audit.domainUrl}/robots.txt</code>
           </div>
         </div>
       )}

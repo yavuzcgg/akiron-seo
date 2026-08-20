@@ -7,6 +7,8 @@ import Header from "@/components/Header";
 import {
   BarChart3,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   FileCode2,
   FileText,
   Globe,
@@ -30,9 +32,11 @@ import TenantQuotaCard from "@/components/TenantQuotaCard";
 import { useApp } from "@/components/providers";
 import { apiClient } from "@/lib/apiClient";
 import { getErrorMessage } from "@/lib/errors";
-import { isSuperAdmin, logout } from "@/lib/session";
+import { SUPER_ADMIN_ROLE, useLogout, useSession } from "@/hooks/useSession";
+import { queryKeys } from "@/lib/queryKeys";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 interface Website {
   id: string;
@@ -53,14 +57,16 @@ export default function DashboardPage() {
 
 function DashboardContent() {
   const { t } = useApp();
-  const [websites, setWebsites] = useState<Website[]>([]);
+  const queryClient = useQueryClient();
+  const session = useSession();
+  const logout = useLogout();
+  const websitesQuery = useQuery<Website[]>({
+    queryKey: queryKeys.websites,
+    queryFn: apiClient.websites.list,
+  });
+  const websites = websitesQuery.data ?? [];
   const [loading, setLoading] = useState(false);
-  const [showAdminLink, setShowAdminLink] = useState(false);
-
-  // Role is only known in the browser, so this is resolved after mount.
-  useEffect(() => {
-    setShowAdminLink(isSuperAdmin());
-  }, []);
+  const [expandedSiteIds, setExpandedSiteIds] = useState<Set<string>>(() => new Set());
   
   // Modals state
   const [activeAuditReport, setActiveAuditReport] = useState<AuditReportData | null>(null);
@@ -76,29 +82,16 @@ function DashboardContent() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchWebsites = async () => {
-    try {
-      const data = await apiClient.websites.list();
-      setWebsites(data);
-    } catch {
-      // API Offline fallback
-    }
-  };
-
-  useEffect(() => {
-    fetchWebsites();
-  }, []);
-
   const fetchLatestAudit = async (websiteId: string) => {
     try {
       const report = await apiClient.websites.getLatestAudit(websiteId);
       if (report) {
         setActiveAuditReport(report);
       } else {
-        setError("No audit report available yet for this website. Click '⚡ Run Audit' to start!");
+        setError(t("noAuditReport"));
       }
     } catch (err: unknown) {
-      setError(getErrorMessage(err, "Failed to fetch audit report."));
+      setError(getErrorMessage(err, t("auditLoadFailed")));
     }
   };
 
@@ -111,13 +104,13 @@ function DashboardContent() {
     try {
       const data = await apiClient.websites.create({ name: newSiteName, domainUrl: newDomainUrl });
       if (data.success) {
-        setMessage(`Website '${newSiteName}' added successfully!`);
+        setMessage(`${t("websiteAdded")} ${newSiteName}`);
         setNewSiteName("");
         setNewDomainUrl("");
-        fetchWebsites();
+        await queryClient.invalidateQueries({ queryKey: queryKeys.websites });
       }
     } catch (err: unknown) {
-      setError(getErrorMessage(err, "Failed to add website."));
+      setError(getErrorMessage(err, t("websiteAddFailed")));
     } finally {
       setLoading(false);
     }
@@ -129,13 +122,13 @@ function DashboardContent() {
     try {
       const data = await apiClient.websites.verify(websiteId, 1);
       if (data.verified) {
-        setMessage("Website ownership verified successfully!");
-        fetchWebsites();
+        setMessage(t("ownershipVerified"));
+        await queryClient.invalidateQueries({ queryKey: queryKeys.websites });
       } else {
-        setError("Verification pending. Please check DNS TXT or Meta tag.");
+        setError(t("verificationPending"));
       }
     } catch (err: unknown) {
-      setError(getErrorMessage(err, "Verification check failed."));
+      setError(getErrorMessage(err, t("verificationFailed")));
     }
   };
 
@@ -145,11 +138,11 @@ function DashboardContent() {
     try {
       const data = await apiClient.websites.crawl(websiteId);
       if (data.success) {
-        setMessage(`Crawl completed! Audit Score: ${data.score}/100`);
+        setMessage(`${t("crawlCompleted")} ${data.score}/100`);
         fetchLatestAudit(websiteId);
       }
     } catch (err: unknown) {
-      setError(getErrorMessage(err, "Crawler service connection failed."));
+      setError(getErrorMessage(err, t("crawlFailed")));
     }
   };
 
@@ -164,44 +157,45 @@ function DashboardContent() {
       });
 
       if (data.success) {
-        setMessage(data.message || "BYOK API key encrypted with AES-256-GCM and saved!");
+        setMessage(t("apiKeySaved"));
         setApiKeyValue("");
       }
     } catch (err: unknown) {
-      setError(getErrorMessage(err, "API key service failed to connect."));
+      setError(getErrorMessage(err, t("apiKeyFailed")));
     }
   };
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-7xl flex-col justify-between space-y-6 p-4 sm:p-6">
-      <Header label="Akiron SEO Dashboard">
-        {showAdminLink && (
+    <div className="mx-auto flex min-h-dvh max-w-7xl flex-col justify-between space-y-6 p-4 sm:p-6">
+      <Header label={`Akiron SEO ${t("dashboard")}`}>
+        {session.data?.role === SUPER_ADMIN_ROLE && (
           <Link
             href="/admin"
             className="flex h-9 items-center gap-1.5 rounded-lg border border-primary/30 px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
           >
             <Shield size={15} aria-hidden />
-            Admin
+            {t("admin")}
           </Link>
         )}
         <button
-          onClick={logout}
+          onClick={() => logout.mutate()}
+          disabled={logout.isPending}
           className="flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-semibold text-muted transition-colors hover:text-foreground"
         >
           <LogOut size={15} aria-hidden />
-          Logout
+          {t("logout")}
         </button>
       </Header>
 
       {/* Main Content Grid */}
-      <main className="space-y-6">
+      <main id="main-content" tabIndex={-1} className="space-y-6">
         {/* Status Messages */}
         {message && (
           <div className="flex animate-fadeIn items-center justify-between rounded-xl border border-success/20 bg-success/10 p-4 text-sm font-semibold text-success">
             <span>{message}</span>
-            {message.includes("Audit Score") && (
+            {message.startsWith(t("crawlCompleted")) && (
               <button className="cursor-pointer text-xs font-bold underline" onClick={() => activeAuditReport && fetchLatestAudit(activeAuditReport.websiteId)}>
-                View Report ↓
+                {t("viewReport")} ↓
               </button>
             )}
           </div>
@@ -218,23 +212,34 @@ function DashboardContent() {
             {/* Add Website Form */}
             <div className="space-y-4 rounded-2xl border border-border bg-surface p-6">
               <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
-                <Globe size={18} className="text-primary" aria-hidden /> Add New Website
+                <Globe size={18} className="text-primary" aria-hidden /> {t("addWebsite")}
               </h2>
               <form onSubmit={handleAddWebsite} className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+                <label htmlFor="site-name" className="sr-only">{t("siteName")}</label>
                 <input
+                  id="site-name"
+                  name="siteName"
+                  autoComplete="organization"
                   type="text"
-                  placeholder="Site Name (e.g. My Shop)"
+                  placeholder={`${t("siteName")} (e.g. My Shop)`}
                   value={newSiteName}
                   onChange={(e) => setNewSiteName(e.target.value)}
                   required
+                  minLength={2}
+                  maxLength={100}
                   className="rounded-lg border border-border bg-bg px-4 py-2 text-sm text-foreground placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-ring sm:col-span-2"
                 />
+                <label htmlFor="site-domain" className="sr-only">{t("domain")}</label>
                 <input
+                  id="site-domain"
+                  name="domain"
+                  autoComplete="url"
                   type="text"
-                  placeholder="Domain (e.g. myshop.com)"
+                  placeholder={`${t("domain")} (e.g. myshop.com)`}
                   value={newDomainUrl}
                   onChange={(e) => setNewDomainUrl(e.target.value)}
                   required
+                  maxLength={2048}
                   className="rounded-lg border border-border bg-bg px-4 py-2 text-sm text-foreground placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-ring sm:col-span-2"
                 />
                 <button
@@ -242,7 +247,7 @@ function DashboardContent() {
                   disabled={loading}
                   className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-bold text-on-primary transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {loading ? "Adding..." : "Add Site"}
+                  {loading ? t("adding") : t("addSite")}
                 </button>
               </form>
             </div>
@@ -250,10 +255,16 @@ function DashboardContent() {
             {/* Registered Websites Table */}
             <div className="space-y-4 rounded-2xl border border-border bg-surface p-6">
               <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
-                <ListChecks size={18} className="text-primary" aria-hidden /> Registered Websites
+                <ListChecks size={18} className="text-primary" aria-hidden /> {t("registeredWebsites")}
               </h2>
-              {websites.length === 0 ? (
-                <p className="text-sm text-muted">No websites added yet. Add a website to start crawling!</p>
+              {websitesQuery.isPending ? (
+                <p className="text-sm text-muted" role="status">{t("loadingWebsites")}</p>
+              ) : websitesQuery.isError ? (
+                <div className="rounded-lg border border-danger/20 bg-danger/10 p-3 text-sm text-danger" role="alert">
+                  {t("websiteLoadFailed")}
+                </div>
+              ) : websites.length === 0 ? (
+                <p className="text-sm text-muted">{t("noWebsites")}</p>
               ) : (
                 <div className="space-y-4">
                   {websites.map((site) => (
@@ -270,14 +281,14 @@ function DashboardContent() {
                         <div className="flex flex-wrap items-center gap-2">
                           {site.isVerified ? (
                             <span className="flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
-                              <CheckCircle2 size={13} aria-hidden /> Verified
+                              <CheckCircle2 size={13} aria-hidden /> {t("verified")}
                             </span>
                           ) : (
                             <button
                               onClick={() => handleVerifyWebsite(site.id)}
                               className="cursor-pointer rounded-lg border border-warning/30 px-3 py-1 text-xs font-semibold text-warning transition-colors hover:bg-warning/10"
                             >
-                              Verify Ownership
+                              {t("verifyOwnership")}
                             </button>
                           )}
 
@@ -285,87 +296,71 @@ function DashboardContent() {
                             onClick={() => fetchLatestAudit(site.id)}
                             className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-primary/30 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
                           >
-                            <BarChart3 size={13} aria-hidden /> Audit Report
+                            <BarChart3 size={13} aria-hidden /> {t("auditReport")}
                           </button>
 
                           <button
                             onClick={() => {
-                              const token = localStorage.getItem("akiron_token");
                               const url = apiClient.reports.getExecutiveReportUrl(site.id);
-                              const win = window.open(url, "_blank");
-                              if (win && token) {
-                                fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-                                  .then((res) => res.text())
-                                  .then((html) => {
-                                    win.document.open();
-                                    win.document.write(html);
-                                    win.document.close();
-                                  });
-                              }
+                              window.open(url, "_blank", "noopener,noreferrer");
                             }}
                             className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1 text-xs font-semibold text-muted transition-colors hover:text-foreground"
                           >
-                            <FileText size={13} aria-hidden /> Executive HTML
+                            <FileText size={13} aria-hidden /> {t("executiveReport")}
                           </button>
 
                           <button
                             onClick={() => setAeoModalSite({ id: site.id, name: site.name })}
                             className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1 text-xs font-semibold text-muted transition-colors hover:text-foreground"
                           >
-                            <FileCode2 size={13} aria-hidden /> AEO & Schemas
+                            <FileCode2 size={13} aria-hidden /> {t("aeoSchemas")}
                           </button>
 
                           <button
                             onClick={() => setAiWriterSite({ id: site.id, name: site.name })}
                             className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1 text-xs font-semibold text-muted transition-colors hover:text-foreground"
                           >
-                            <PenLine size={13} aria-hidden /> AI Writer
+                            <PenLine size={13} aria-hidden /> {t("aiWriter")}
                           </button>
 
                           <button
                             onClick={() => handleRunCrawl(site.id)}
                             className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-3 py-1 text-xs font-bold text-on-primary transition-colors hover:bg-primary-hover"
                           >
-                            <Zap size={13} aria-hidden /> Run Audit
+                            <Zap size={13} aria-hidden /> {t("runAudit")}
                           </button>
                         </div>
                       </div>
 
-                      {/* Gold GEO Opportunity Alerts Panel */}
-                      <GoldOpportunityPanel
-                        websiteId={site.id}
-                        websiteName={site.name}
-                        onOpenWriter={(kw, path) => setAiWriterSite({ id: site.id, name: site.name, keyword: kw, path: path })}
-                      />
+                      <button
+                        type="button"
+                        onClick={() => setExpandedSiteIds((current) => {
+                          const next = new Set(current);
+                          if (next.has(site.id)) next.delete(site.id);
+                          else next.add(site.id);
+                          return next;
+                        })}
+                        aria-expanded={expandedSiteIds.has(site.id)}
+                        className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-elevated"
+                      >
+                        {expandedSiteIds.has(site.id) ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
+                        {expandedSiteIds.has(site.id) ? t("hideInsights") : t("showInsights")}
+                      </button>
 
-                      {/* Google Search Console Analytics Card */}
-                      <GscAnalyticsCard
-                        websiteId={site.id}
-                        websiteName={site.name}
-                      />
-
-                      {/* GEO Intelligence Engine Card */}
-                      <GeoIntelligenceCard
-                        websiteId={site.id}
-                        websiteName={site.name}
-                      />
-
-                      {/* Competitor Intelligence & SERP Gap Card */}
-                      <CompetitorAnalysisCard
-                        websiteId={site.id}
-                        websiteName={site.name}
-                      />
-
-                      {/* Keyword Rank Tracker Card */}
-                      <KeywordTrackerCard
-                        websiteId={site.id}
-                      />
-
-                      {/* AI Bot Auditor Sub-card */}
-                      <AiBotAuditorCard
-                        websiteId={site.id}
-                        websiteName={site.name}
-                      />
+                      {expandedSiteIds.has(site.id) && (
+                        <div className="space-y-4" data-testid={`site-insights-${site.id}`}>
+                          <GoldOpportunityPanel
+                            websiteId={site.id}
+                            websiteName={site.name}
+                            onOpenWriter={(kw, path) => setAiWriterSite({ id: site.id, name: site.name, keyword: kw, path })}
+                          />
+                          <GscAnalyticsCard websiteId={site.id} websiteName={site.name} />
+                          <GeoIntelligenceCard websiteId={site.id} websiteName={site.name} />
+                          <CompetitorAnalysisCard websiteId={site.id} websiteName={site.name} />
+                          <KeywordTrackerCard websiteId={site.id} />
+                          <AiBotAuditorCard websiteId={site.id} websiteName={site.name} />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -381,34 +376,41 @@ function DashboardContent() {
             {/* BYOK API Key Settings */}
             <div className="space-y-4 rounded-2xl border border-border bg-surface p-6">
               <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
-                <KeyRound size={18} className="text-primary" aria-hidden /> BYOK (Bring Your Own Key)
+                <KeyRound size={18} className="text-primary" aria-hidden /> {t("byokTitle")}
               </h2>
               <p className="text-xs leading-relaxed text-muted">
-                Save your private LLM API keys, encrypted at rest with <strong className="text-foreground">AES-256-GCM</strong>.
+                {t("byokDescription")}
               </p>
 
               <form onSubmit={handleSaveApiKey} className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-muted">Provider</label>
+                  <label htmlFor="api-provider" className="mb-1 block text-xs font-semibold text-muted">{t("provider")}</label>
                   <select
+                    id="api-provider"
+                    name="provider"
                     value={apiKeyProvider}
                     onChange={(e) => setApiKeyProvider(e.target.value)}
                     className="w-full cursor-pointer rounded-lg border border-border bg-bg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="3">Google Gemini</option>
                     <option value="2">Perplexity AI</option>
-                    <option value="1">OpenAI (not yet used)</option>
+                    <option value="1">OpenAI ({t("notYetUsed")})</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-muted">API Key</label>
+                  <label htmlFor="api-key" className="mb-1 block text-xs font-semibold text-muted">{t("apiKey")}</label>
                   <input
+                    id="api-key"
+                    name="apiKey"
+                    autoComplete="off"
                     type="password"
                     placeholder="AIzaSy••••••••••••••••"
                     value={apiKeyValue}
                     onChange={(e) => setApiKeyValue(e.target.value)}
                     required
+                    minLength={16}
+                    maxLength={4096}
                     className="w-full rounded-lg border border-border bg-bg px-3 py-2 font-mono text-sm text-foreground placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
@@ -417,7 +419,7 @@ function DashboardContent() {
                   type="submit"
                   className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-sm font-bold text-on-primary transition-colors hover:bg-primary-hover"
                 >
-                  <Lock size={15} aria-hidden /> Encrypt & Save Key
+                  <Lock size={15} aria-hidden /> {t("saveKey")}
                 </button>
               </form>
             </div>
@@ -432,20 +434,26 @@ function DashboardContent() {
       />
 
       {/* AEO & Schemas Modal */}
-      <AeoGeneratorModal
-        websiteId={aeoModalSite?.id || null}
-        websiteName={aeoModalSite?.name || ""}
-        onClose={() => setAeoModalSite(null)}
-      />
+      {aeoModalSite && (
+        <AeoGeneratorModal
+          key={aeoModalSite.id}
+          websiteId={aeoModalSite.id}
+          websiteName={aeoModalSite.name}
+          onClose={() => setAeoModalSite(null)}
+        />
+      )}
 
       {/* AI Content Writer & Gold Opportunity Fixer Modal */}
-      <AiContentWriterModal
-        websiteId={aiWriterSite?.id || null}
-        websiteName={aiWriterSite?.name || ""}
-        initialKeyword={aiWriterSite?.keyword || ""}
-        initialPath={aiWriterSite?.path || ""}
-        onClose={() => setAiWriterSite(null)}
-      />
+      {aiWriterSite && (
+        <AiContentWriterModal
+          key={`${aiWriterSite.id}:${aiWriterSite.keyword ?? ""}:${aiWriterSite.path ?? ""}`}
+          websiteId={aiWriterSite.id}
+          websiteName={aiWriterSite.name}
+          initialKeyword={aiWriterSite.keyword || ""}
+          initialPath={aiWriterSite.path || ""}
+          onClose={() => setAiWriterSite(null)}
+        />
+      )}
 
       {/* Footer */}
       <footer className="border-t border-border py-4 text-center text-xs text-subtle">

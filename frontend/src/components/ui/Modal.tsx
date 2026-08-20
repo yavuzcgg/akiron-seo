@@ -1,6 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
+import { useApp } from "@/components/providers";
 import { useEffect, useId, useRef } from "react";
 
 interface ModalProps {
@@ -33,6 +34,7 @@ export default function Modal({
   footer,
   maxWidthClass = "max-w-2xl",
 }: ModalProps) {
+  const { t } = useApp();
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
@@ -110,7 +112,7 @@ export default function Modal({
           </div>
           <button
             onClick={onClose}
-            aria-label="Close dialog"
+            aria-label={t("closeDialog")}
             className="cursor-pointer rounded-lg p-1.5 text-muted transition-colors hover:bg-elevated hover:text-foreground"
           >
             <X size={18} aria-hidden />

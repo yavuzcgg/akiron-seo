@@ -1,44 +1,33 @@
 "use client";
 
-import { getToken, isSuperAdmin } from "@/lib/session";
+import { useApp } from "@/components/providers";
+import { SUPER_ADMIN_ROLE, useSession } from "@/hooks/useSession";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 interface AuthGuardProps {
   children: React.ReactNode;
-  /** Requires the SuperAdmin role in addition to a session. */
   requireSuperAdmin?: boolean;
 }
 
-/**
- * Client-side gate that keeps unauthenticated visitors out of the app shell.
- *
- * The token lives in localStorage, so a server-side proxy cannot read it — this
- * check runs in the browser and is a usability boundary, not the security one.
- * Authorization is enforced by the API (see AdminEndpoints' SuperAdmin policy).
- */
 export default function AuthGuard({ children, requireSuperAdmin = false }: AuthGuardProps) {
+  const { t } = useApp();
   const router = useRouter();
-  const [allowed, setAllowed] = useState(false);
+  const session = useSession();
+  const isForbidden = requireSuperAdmin && session.data?.role !== SUPER_ADMIN_ROLE;
 
   useEffect(() => {
-    if (!getToken()) {
+    if (session.isError) {
       router.replace("/login");
-      return;
-    }
-
-    if (requireSuperAdmin && !isSuperAdmin()) {
+    } else if (session.isSuccess && isForbidden) {
       router.replace("/dashboard");
-      return;
     }
+  }, [isForbidden, router, session.isError, session.isSuccess]);
 
-    setAllowed(true);
-  }, [router, requireSuperAdmin]);
-
-  if (!allowed) {
+  if (session.isPending || session.isError || isForbidden) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-sm text-muted">
-        Checking your session…
+      <div className="flex min-h-dvh items-center justify-center text-sm text-muted" role="status">
+        {t("sessionChecking")}
       </div>
     );
   }

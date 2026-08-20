@@ -1,6 +1,7 @@
 "use client";
 
 import Modal from "@/components/ui/Modal";
+import { useApp } from "@/components/providers";
 import { apiClient, AiSeoRecommendation, AuditReportData } from "@/lib/apiClient";
 import { getErrorMessage } from "@/lib/errors";
 import { AlertTriangle, BarChart3, Bot, FileText, Search, Sparkles, Zap } from "lucide-react";
@@ -8,11 +9,11 @@ import { useState } from "react";
 
 interface ModalProps {
   report: AuditReportData | null;
-  tenantId?: string;
   onClose: () => void;
 }
 
-export default function AuditDetailsModal({ report, tenantId, onClose }: ModalProps) {
+export default function AuditDetailsModal({ report, onClose }: ModalProps) {
+  const { t } = useApp();
   const [aiAnalysis, setAiAnalysis] = useState<AiSeoRecommendation | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [errorAi, setErrorAi] = useState<string | null>(null);
@@ -27,10 +28,10 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
   };
 
   const getScoreLabel = (score: number) => {
-    if (score >= 90) return "Excellent";
-    if (score >= 70) return "Good";
-    if (score >= 50) return "Needs Work";
-    return "Critical";
+    if (score >= 90) return t("excellent");
+    if (score >= 70) return t("good");
+    if (score >= 50) return t("needsWork");
+    return t("critical");
   };
 
   const getSeverityStyle = (severity: string) => {
@@ -43,8 +44,6 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
 
   const criticalCount = report.issues.filter(i => i.severity === "Critical").length;
   const warningCount = report.issues.filter(i => i.severity === "Warning").length;
-  const infoCount = report.issues.filter(i => i.severity === "Info").length;
-
   const handleGenerateAiSuggestions = async () => {
     setLoadingAi(true);
     setErrorAi(null);
@@ -52,25 +51,15 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
       const data = await apiClient.websites.getAiSuggestions(report.websiteId);
       setAiAnalysis(data);
     } catch (err: unknown) {
-      setErrorAi(getErrorMessage(err, "Failed to generate AI recommendations."));
+      setErrorAi(getErrorMessage(err, t("aiSuggestionFailed")));
     } finally {
       setLoadingAi(false);
     }
   };
 
   const openExecutiveReport = () => {
-    const token = localStorage.getItem("akiron_token");
     const url = apiClient.reports.getExecutiveReportUrl(report.websiteId);
-    const win = window.open(url, "_blank");
-    if (win && token) {
-      fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-        .then((res) => res.text())
-        .then((html) => {
-          win.document.open();
-          win.document.write(html);
-          win.document.close();
-        });
-    }
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -86,13 +75,13 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
             onClick={openExecutiveReport}
             className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3.5 py-1.5 text-xs font-bold text-muted transition-colors hover:text-foreground"
           >
-            <FileText size={14} aria-hidden /> Executive Report
+            <FileText size={14} aria-hidden /> {t("executiveReport")}
           </button>
           <button
             onClick={onClose}
             className="cursor-pointer rounded-lg bg-elevated px-5 py-2 text-xs font-bold text-foreground transition-colors hover:opacity-80"
           >
-            Close
+            {t("close")}
           </button>
         </div>
       }
@@ -102,7 +91,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
         {/* Score Overview Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className={`p-4 rounded-xl border flex flex-col items-center justify-center text-center ${getScoreColor(report.overallScore)}`}>
-            <span className="text-[10px] font-semibold uppercase tracking-wider opacity-80">Score</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider opacity-80">{t("score")}</span>
             <span className="text-3xl font-extrabold my-0.5">{report.overallScore}<span className="text-sm font-normal">/100</span></span>
             <span className="text-[10px] font-bold">{getScoreLabel(report.overallScore)}</span>
           </div>
@@ -113,35 +102,35 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
               <span className={`w-2 h-2 rounded-full ${report.statusCode === 200 ? "bg-emerald-500" : "bg-rose-500"}`}></span>
               <span className="text-lg font-bold text-foreground">{report.statusCode}</span>
             </div>
-            <span className="text-[10px] text-muted">{report.statusCode === 200 ? "OK" : "Error"}</span>
+            <span className="text-[10px] text-muted">{report.statusCode === 200 ? "OK" : t("errorStatus")}</span>
           </div>
 
           <div className="p-4 rounded-xl border border-border bg-bg flex flex-col items-center justify-center text-center">
-            <span className="text-[10px] font-semibold text-muted uppercase">Issues</span>
+            <span className="text-[10px] font-semibold text-muted uppercase">{t("issues")}</span>
             <span className="text-lg font-bold text-amber-400 my-0.5">{report.issues.length}</span>
             <span className="text-[10px] text-muted">
-              {criticalCount > 0 && <span className="text-rose-400">{criticalCount} critical</span>}
+              {criticalCount > 0 && <span className="text-rose-400">{criticalCount} {t("critical").toLocaleLowerCase()}</span>}
               {criticalCount > 0 && warningCount > 0 && " · "}
-              {warningCount > 0 && <span className="text-amber-400">{warningCount} warn</span>}
+              {warningCount > 0 && <span className="text-amber-400">{warningCount} {t("warning")}</span>}
             </span>
           </div>
 
           <div className="p-4 rounded-xl border border-border bg-bg flex flex-col items-center justify-center text-center">
-            <span className="text-[10px] font-semibold text-muted uppercase">AI Bots</span>
+            <span className="text-[10px] font-semibold text-muted uppercase">{t("aiBots")}</span>
             <span className="text-lg font-bold text-purple-400 my-0.5">
               {report.robotsTxtAudit ? report.robotsTxtAudit.botStatuses.filter(b => b.status === "Allowed").length : "—"}
             </span>
-            <span className="text-[10px] text-muted">Allowed</span>
+            <span className="text-[10px] text-muted">{t("allowed")}</span>
           </div>
         </div>
 
         {/* Tabs */}
         <div className="flex gap-1 border-b border-border text-xs font-bold">
           {([
-            { key: "overview", label: "Overview", Icon: BarChart3 },
-            { key: "issues", label: `Issues (${report.issues.length})`, Icon: AlertTriangle },
-            { key: "robots", label: "AI Bots", Icon: Bot },
-            { key: "ai", label: "AI Engine", Icon: Sparkles },
+            { key: "overview", label: t("overview"), Icon: BarChart3 },
+            { key: "issues", label: `${t("issues")} (${report.issues.length})`, Icon: AlertTriangle },
+            { key: "robots", label: t("robots"), Icon: Bot },
+            { key: "ai", label: t("aiEngineTab"), Icon: Sparkles },
           ] as const).map(({ key, label, Icon }) => (
             <button
               key={key}
@@ -166,14 +155,14 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
             <div className="space-y-4">
               {/* Extracted Meta Tags */}
               <div className="space-y-3">
-                <h3 className="text-sm font-bold uppercase text-foreground tracking-wider">Extracted Meta Tags</h3>
+                <h3 className="text-sm font-bold uppercase text-foreground tracking-wider">{t("extractedMeta")}</h3>
                 
                 <div className="p-4 rounded-xl border border-border bg-bg space-y-3">
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1">
                       <span className="font-semibold text-blue-400">&lt;title&gt; Tag</span>
                       <span className={`font-mono ${report.title.length >= 30 && report.title.length <= 60 ? "text-emerald-400" : "text-amber-400"}`}>
-                        {report.title.length} chars
+                        {report.title.length} {t("characters")}
                       </span>
                     </div>
                     <div className="p-2.5 rounded-lg bg-black/40 text-sm font-mono text-foreground border border-border">
@@ -185,7 +174,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                     <div className="flex items-center justify-between text-xs mb-1">
                       <span className="font-semibold text-blue-400">&lt;meta name=&quot;description&quot;&gt;</span>
                       <span className={`font-mono ${report.metaDescription.length >= 120 && report.metaDescription.length <= 160 ? "text-emerald-400" : "text-amber-400"}`}>
-                        {report.metaDescription.length} chars
+                        {report.metaDescription.length} {t("characters")}
                       </span>
                     </div>
                     <div className="p-2.5 rounded-lg bg-black/40 text-sm font-mono text-foreground border border-border">
@@ -197,7 +186,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
 
               {/* H1 Tags */}
               <div className="space-y-2">
-                <h3 className="text-sm font-bold uppercase text-foreground tracking-wider">H1 Headings</h3>
+                <h3 className="text-sm font-bold uppercase text-foreground tracking-wider">{t("h1Headings")}</h3>
                 <div className="p-4 rounded-xl border border-border bg-bg">
                   {report.h1Tags && report.h1Tags.length > 0 ? (
                     <div className="space-y-2">
@@ -210,18 +199,18 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                         </div>
                       ))}
                       {report.h1Tags.length > 1 && (
-                        <p className="text-[11px] text-amber-400 mt-1">⚠ Multiple H1 tags detected. Best practice is exactly one H1 per page.</p>
+                        <p className="text-[11px] text-amber-400 mt-1">⚠ {t("multipleH1")}</p>
                       )}
                     </div>
                   ) : (
-                    <p className="text-xs text-rose-400">✕ No H1 heading found on this page.</p>
+                    <p className="text-xs text-rose-400">✕ {t("noH1")}</p>
                   )}
                 </div>
               </div>
 
               {/* Canonical URL */}
               <div className="space-y-2">
-                <h3 className="text-sm font-bold uppercase text-foreground tracking-wider">Canonical URL</h3>
+                <h3 className="text-sm font-bold uppercase text-foreground tracking-wider">{t("canonicalUrl")}</h3>
                 <div className="p-4 rounded-xl border border-border bg-bg">
                   {report.canonicalUrl ? (
                     <div className="flex items-center gap-2">
@@ -229,7 +218,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                       <code className="text-sm text-foreground font-mono">{report.canonicalUrl}</code>
                     </div>
                   ) : (
-                    <p className="text-xs text-amber-400">⚠ No canonical URL specified. Consider adding &lt;link rel=&quot;canonical&quot;&gt; to prevent duplicate content.</p>
+                    <p className="text-xs text-amber-400">⚠ {t("noCanonical")}</p>
                   )}
                 </div>
               </div>
@@ -239,7 +228,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                   stored breakdown; the section is hidden rather than reconstructed. */}
               {report.scoreBreakdown && report.scoreBreakdown.length > 0 && (
                 <div className="space-y-2">
-                  <h3 className="text-sm font-bold uppercase text-foreground tracking-wider">Score Breakdown</h3>
+                  <h3 className="text-sm font-bold uppercase text-foreground tracking-wider">{t("scoreBreakdown")}</h3>
                   <div className="p-4 rounded-xl border border-border bg-bg space-y-2">
                     {report.scoreBreakdown.map((item, idx) => (
                       <div key={idx} className="flex items-center gap-3">
@@ -266,7 +255,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
             <div className="space-y-3">
               {report.issues.length === 0 ? (
                 <div className="p-6 text-center text-emerald-400 text-sm font-semibold">
-                  ✓ No SEO issues detected. Great job!
+                  ✓ {t("noSeoIssues")}
                 </div>
               ) : (
                 report.issues.map((issue, idx) => (
@@ -283,7 +272,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                     </div>
                     <p className="text-sm font-semibold text-foreground">{issue.description}</p>
                     <p className="text-xs text-foreground leading-relaxed">
-      <strong className="text-foreground">Fix:</strong> {issue.recommendation}
+      <strong className="text-foreground">{t("fix")}:</strong> {issue.recommendation}
                     </p>
                   </div>
                 ))
@@ -298,7 +287,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                 <>
                   <div className="flex items-center gap-2 text-xs">
                     <span className={`px-2 py-1 rounded-full font-bold ${report.robotsTxtAudit.hasRobotsTxt ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"}`}>
-                      {report.robotsTxtAudit.hasRobotsTxt ? "✓ robots.txt Found" : "✕ No robots.txt"}
+                      {report.robotsTxtAudit.hasRobotsTxt ? `✓ ${t("robotsFound")}` : `✕ ${t("noRobots")}`}
                     </span>
                     <code className="text-muted">{report.robotsTxtAudit.domainUrl}/robots.txt</code>
                   </div>
@@ -326,7 +315,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                               : "bg-slate-500/10 text-muted border border-slate-500/20"
                           }`}
                         >
-                          {bot.status === "Allowed" ? "✓ Allowed" : bot.status === "Disallowed" ? "✕ Blocked" : "⚪ Default"}
+                          {bot.status === "Allowed" ? `✓ ${t("allowed")}` : bot.status === "Disallowed" ? `✕ ${t("blocked")}` : `⚪ ${t("defaultStatus")}`}
                         </span>
                       </div>
                     ))}
@@ -334,7 +323,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                 </>
               ) : (
                 <div className="p-6 text-center text-muted text-sm">
-                  No robots.txt audit data available. Run a new audit to capture AI bot status.
+                  {t("robotsAuditUnavailable")}
                 </div>
               )}
             </div>
@@ -346,9 +335,9 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="flex items-center gap-1.5 text-sm font-bold text-primary">
-                    <Sparkles size={15} aria-hidden /> Live AI Optimization Engine (BYOK)
+                    <Sparkles size={15} aria-hidden /> {t("liveAiEngine")}
                   </h4>
-                  <p className="text-xs text-muted">Generate Title &amp; Meta Descriptions using your saved Gemini key.</p>
+                  <p className="text-xs text-muted">{t("aiEngineDescription")}</p>
                 </div>
 
                 <button
@@ -357,7 +346,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
                   className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-on-primary transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Zap size={14} aria-hidden />
-                  {loadingAi ? "Analyzing…" : "Generate AI Fixes"}
+                  {loadingAi ? t("analyzing") : t("generateAiFixes")}
                 </button>
               </div>
 
@@ -370,21 +359,21 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
               {aiAnalysis && (
                 <div className="space-y-3 rounded-xl border border-border bg-surface p-4 text-xs text-foreground">
                   <div>
-                    <span className="mb-1 block font-semibold text-muted">Optimized Title</span>
+                    <span className="mb-1 block font-semibold text-muted">{t("optimizedTitle")}</span>
                     <div className="rounded-lg border border-border bg-bg p-2.5 text-sm font-bold text-primary">
                       {aiAnalysis.optimizedTitle}
                     </div>
                   </div>
 
                   <div>
-                    <span className="mb-1 block font-semibold text-muted">Optimized Meta Description</span>
+                    <span className="mb-1 block font-semibold text-muted">{t("optimizedMeta")}</span>
                     <div className="rounded-lg border border-border bg-bg p-2.5 text-xs leading-relaxed text-foreground">
                       {aiAnalysis.optimizedMetaDescription}
                     </div>
                   </div>
 
                   <div>
-                    <span className="mb-1 block font-semibold text-muted">Target Keywords</span>
+                    <span className="mb-1 block font-semibold text-muted">{t("targetKeywords")}</span>
                     <div className="flex flex-wrap gap-1.5">
                       {aiAnalysis.targetKeywords.map((kw, i) => (
                         <span key={i} className="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[11px] text-primary">
@@ -396,7 +385,7 @@ export default function AuditDetailsModal({ report, tenantId, onClose }: ModalPr
 
                   {aiAnalysis.actionableTips.length > 0 && (
                     <div>
-                      <span className="mb-1 block font-semibold text-muted">Actionable Improvements</span>
+                      <span className="mb-1 block font-semibold text-muted">{t("actionableImprovements")}</span>
                       <ul className="list-disc space-y-1 pl-4 text-foreground">
                         {aiAnalysis.actionableTips.map((tip, i) => (
                           <li key={i}>{tip}</li>

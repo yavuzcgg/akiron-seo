@@ -1,8 +1,11 @@
 "use client";
 
-import { apiClient, GoldOpportunity } from "@/lib/apiClient";
+import { apiClient } from "@/lib/apiClient";
+import { useApp } from "@/components/providers";
+import { getErrorMessage } from "@/lib/errors";
+import { queryKeys } from "@/lib/queryKeys";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Sparkles, X, Zap } from "lucide-react";
-import { useEffect, useState } from "react";
 
 interface PanelProps {
   websiteId: string;
@@ -10,126 +13,64 @@ interface PanelProps {
   onOpenWriter?: (keyword: string, missingPath: string) => void;
 }
 
+function extractKeywordAndPath(message: string) {
+  let keyword = "target page content";
+  let path = "";
+  const keywordMatch = message.match(/keyword '([^']+)'/i);
+  if (keywordMatch) keyword = keywordMatch[1];
+  const urlMatch = message.match(/'(https?:\/\/[^']+)'/i);
+  if (urlMatch) {
+    try { path = new URL(urlMatch[1]).pathname; } catch { path = urlMatch[1]; }
+  }
+  return { keyword, path };
+}
+
 export default function GoldOpportunityPanel({ websiteId, websiteName, onOpenWriter }: PanelProps) {
-  const [opportunities, setOpportunities] = useState<GoldOpportunity[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { t } = useApp();
+  const queryClient = useQueryClient();
+  const opportunitiesQuery = useQuery({
+    queryKey: queryKeys.opportunities(websiteId),
+    queryFn: () => apiClient.websites.getGoldOpportunities(websiteId),
+  });
+  const dismissMutation = useMutation({
+    mutationFn: apiClient.notifications.markRead,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.opportunities(websiteId) }),
+  });
 
-  const fetchOpportunities = async () => {
-    setLoading(true);
-    try {
-      const data = await apiClient.websites.getGoldOpportunities(websiteId);
-      setOpportunities(data);
-    } catch {
-      // API Offline
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchOpportunities();
-  }, [websiteId]);
-
-  const handleDismiss = async (notificationId: string) => {
-    try {
-      await apiClient.notifications.markRead(notificationId);
-      setOpportunities((prev) => prev.filter((o) => o.notificationId !== notificationId));
-    } catch {
-      // Error
-    }
-  };
-
-  const extractKeywordAndPath = (message: string) => {
-    // Message format: "... cited 'https://domain.com/path' for keyword 'XYZ'..."
-    let keyword = "hedef sayfa içeriği";
-    let path = "";
-
-    const kwMatch = message.match(/keyword '([^']+)'/i);
-    if (kwMatch) keyword = kwMatch[1];
-
-    const urlMatch = message.match(/'(https?:\/\/[^']+)'/i);
-    if (urlMatch) {
-      try {
-        const u = new URL(urlMatch[1]);
-        path = u.pathname;
-      } catch {
-        path = urlMatch[1];
-      }
-    }
-
-    return { keyword, path };
-  };
-
-  if (loading && opportunities.length === 0) return null;
-  if (opportunities.length === 0) return null;
+  if (opportunitiesQuery.isPending) {
+    return <div className="rounded-xl border border-border bg-bg p-4 text-xs text-muted" role="status">{t("loadingOpportunities")}</div>;
+  }
+  if (opportunitiesQuery.isError) {
+    return <div className="rounded-xl border border-danger/20 bg-danger/10 p-4 text-xs text-danger" role="alert">{getErrorMessage(opportunitiesQuery.error, t("opportunityLoadFailed"))}</div>;
+  }
+  if (opportunitiesQuery.data.length === 0) {
+    return <div className="rounded-xl border border-border bg-bg p-4 text-xs text-muted">{t("noOpportunities")}</div>;
+  }
 
   return (
-    <div className="p-5 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-blue-500/10 space-y-3 animate-fadeIn shadow-lg">
-      <div className="flex items-center justify-between">
+    <section className="space-y-3 rounded-2xl border border-warning/30 bg-warning/10 p-5 shadow-lg" aria-labelledby={`opportunities-${websiteId}`}>
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Sparkles size={20} className="text-accent" aria-hidden />
+          <Sparkles size={20} className="text-warning" aria-hidden />
           <div>
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-accent">
-              Gold GEO Opportunities ({opportunities.length})
-            </h3>
-            <p className="text-xs text-foreground">
-              AI engines cited missing 404 pages on {websiteName}. Create these pages for instant GEO traffic.
-            </p>
+            <h3 id={`opportunities-${websiteId}`} className="text-sm font-extrabold uppercase tracking-wider text-warning">{t("goldOpportunities")} ({opportunitiesQuery.data.length})</h3>
+            <p className="text-xs text-foreground">{t("goldOpportunityHelp")} ({websiteName})</p>
           </div>
         </div>
-
-        <button
-          onClick={fetchOpportunities}
-          className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-muted transition-colors hover:text-foreground"
-        >
-          <RefreshCw size={12} aria-hidden /> Refresh
-        </button>
+        <button type="button" onClick={() => opportunitiesQuery.refetch()} disabled={opportunitiesQuery.isFetching} className="flex min-h-11 cursor-pointer items-center gap-1 px-2 text-xs font-semibold text-muted hover:text-foreground disabled:opacity-50"><RefreshCw size={12} aria-hidden /> {t("refresh")}</button>
       </div>
 
       <div className="space-y-2.5">
-        {opportunities.map((opp) => (
-          <div
-            key={opp.notificationId}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface p-3.5 text-xs"
-          >
-            <div className="space-y-1 max-w-xl">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  404 Missing Citation
-                </span>
-                <span className="text-muted font-mono text-[11px]">
-                  {new Date(opp.detectedAt).toLocaleTimeString()}
-                </span>
-              </div>
-              <p className="text-foreground font-semibold leading-relaxed">{opp.message}</p>
-            </div>
-
+        {opportunitiesQuery.data.map((opportunity) => (
+          <div key={opportunity.notificationId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface p-3.5 text-xs">
+            <div className="max-w-xl space-y-1"><div className="flex items-center gap-2"><span className="rounded border border-warning/30 bg-warning/20 px-2 py-0.5 text-[10px] font-extrabold text-warning">{t("missingCitation")}</span><span className="font-mono text-[11px] text-muted">{new Date(opportunity.detectedAt).toLocaleTimeString()}</span></div><p className="font-semibold leading-relaxed text-foreground">{opportunity.message}</p></div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  const { keyword, path } = extractKeywordAndPath(opp.message);
-                  if (onOpenWriter) {
-                    onOpenWriter(keyword, path);
-                  } else {
-                    alert(`Target Keyword: ${keyword}`);
-                  }
-                }}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-extrabold text-white transition-opacity hover:opacity-90"
-              >
-                <Zap size={13} aria-hidden /> Create Page with AI
-              </button>
-
-              <button
-                onClick={() => handleDismiss(opp.notificationId)}
-                className="cursor-pointer rounded-lg bg-elevated px-2 py-1.5 text-muted transition-colors hover:text-foreground"
-                aria-label="Dismiss alert"
-              >
-                <X size={14} aria-hidden />
-              </button>
+              <button type="button" onClick={() => { const target = extractKeywordAndPath(opportunity.message); onOpenWriter?.(target.keyword, target.path); }} className="flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg bg-warning px-3.5 text-xs font-extrabold text-bg hover:opacity-90"><Zap size={13} aria-hidden /> {t("createPageWithAi")}</button>
+              <button type="button" onClick={() => dismissMutation.mutate(opportunity.notificationId)} disabled={dismissMutation.isPending} className="min-h-11 min-w-11 cursor-pointer rounded-lg bg-elevated text-muted hover:text-foreground disabled:opacity-50" aria-label={t("dismissAlert")}><X size={14} className="mx-auto" aria-hidden /></button>
             </div>
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }

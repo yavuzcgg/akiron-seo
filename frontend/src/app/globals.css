@@ -108,11 +108,39 @@ body {
   min-height: 100vh;
 }
 
+a,
+button {
+  touch-action: manipulation;
+}
+
+a:active,
+button:active {
+  opacity: 0.9;
+}
+
 /* Consistent, visible keyboard focus everywhere (accessibility priority #1). */
 :focus-visible {
   outline: 2px solid var(--c-ring);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* Preserve compact desktop density while keeping touch targets comfortable on phones/tablets. */
+@media (pointer: coarse) {
+  button,
+  a,
+  input,
+  select {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 /* Referenced in five components; now actually defined. */

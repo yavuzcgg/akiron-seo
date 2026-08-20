@@ -1,6 +1,24 @@
-import { getToken, logout } from "./session";
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5248/api/v1";
+export const SESSION_EXPIRED_EVENT = "akiron:session-expired";
+
+export interface SessionDto {
+  userId: string;
+  userEmail: string;
+  tenantId: string;
+  role: string;
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly correlationId?: string,
+    public readonly fieldErrors?: Record<string, string[]>,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
 /**
  * Reads the body as JSON when there is one. Endpoints that answer 204 or send a
@@ -19,45 +37,74 @@ async function readBody(response: Response): Promise<unknown> {
   }
 }
 
-function extractErrorMessage(body: unknown, status: number): string {
+function createApiError(body: unknown, status: number): ApiError {
   if (body && typeof body === "object") {
     const record = body as Record<string, unknown>;
     const detail = record.detail ?? record.message ?? record.title;
-    if (typeof detail === "string" && detail.length > 0) return detail;
+    const correlationId = typeof record.correlationId === "string" ? record.correlationId : undefined;
+    const fieldErrors = record.errors && typeof record.errors === "object"
+      ? record.errors as Record<string, string[]>
+      : undefined;
+    if (typeof detail === "string" && detail.length > 0) {
+      return new ApiError(detail, status, correlationId, fieldErrors);
+    }
   }
-  return `API request failed with status ${status}`;
+  return new ApiError(`API request failed with status ${status}`, status);
+}
+
+let refreshPromise: Promise<boolean> | null = null;
+
+async function refreshSession(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    })
+      .then((response) => response.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
+}
+
+function notifySessionExpired(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  }
 }
 
 export async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  allowRefresh = true,
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-
-  const token = getToken();
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(options.headers as Record<string, string>),
-  };
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+  const headers = new Headers(options.headers);
+  if (options.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(url, { ...options, headers });
+  const response = await fetch(url, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
 
-  // An expired or forged token must end the session rather than surface as a
-  // generic error banner that leaves the stale token in place.
-  if (response.status === 401 && token) {
-    logout();
-    throw new Error("Your session has expired. Please sign in again.");
+  const skipsRefresh = ["/auth/login", "/auth/register", "/auth/refresh", "/auth/logout"].includes(endpoint);
+  if (response.status === 401 && allowRefresh && !skipsRefresh) {
+    if (await refreshSession()) {
+      return apiRequest<T>(endpoint, options, false);
+    }
+    notifySessionExpired();
   }
 
   const data = await readBody(response);
 
   if (!response.ok) {
-    throw new Error(extractErrorMessage(data, response.status));
+    throw createApiError(data, response.status);
   }
 
   return data as T;
@@ -222,15 +269,13 @@ export interface CompetitorGapResult {
 }
 
 export interface TenantQuotaStatus {
-  tenantId: string;
   planName: string;
-  crawlQuotaLimit: number;
-  crawlQuotaUsed: number;
-  aiQuotaLimit: number;
-  aiQuotaUsed: number;
-  keywordQuotaLimit: number;
-  keywordQuotaUsed: number;
-  cycleResetsAt: string;
+  monthlyTokenLimit: number;
+  usedTokens: number;
+  remainingTokens: number;
+  periodStart: string;
+  periodEnd: string;
+  enforcementEnabled: boolean;
 }
 
 export interface AdminTenantDto {
@@ -270,15 +315,18 @@ export interface GscMetrics {
 export const apiClient = {
   auth: {
     login: (body: { email: string; password: string }) =>
-      apiRequest<{ success: boolean; message: string; accessToken?: string; tenantId?: string; userEmail?: string; role?: string }>(
+      apiRequest<SessionDto>(
         "/auth/login",
         { method: "POST", body: JSON.stringify(body) }
       ),
     register: (body: { tenantName: string; fullName: string; email: string; password: string }) =>
-      apiRequest<{ success: boolean; message: string; accessToken?: string; tenantId?: string; userEmail?: string; role?: string }>(
+      apiRequest<SessionDto>(
         "/auth/register",
         { method: "POST", body: JSON.stringify(body) }
       ),
+    session: () => apiRequest<SessionDto>("/auth/session"),
+    refresh: () => apiRequest<null>("/auth/refresh", { method: "POST" }, false),
+    logout: () => apiRequest<null>("/auth/logout", { method: "POST" }, false),
   },
   websites: {
     list: () =>
@@ -327,7 +375,7 @@ export const apiClient = {
       apiRequest<TrackedKeyword[]>(
         `/websites/${websiteId}/keywords`
       ),
-    add: (body: { websiteId: string; keywordText: string; language?: string; cronExpression?: string }) =>
+    add: (body: { websiteId: string; keywordText: string; language?: string; targetCountry?: string; cronExpression?: string }) =>
       apiRequest<{ success: boolean; keywordId: string }>(
         "/keywords",
         {
@@ -335,7 +383,8 @@ export const apiClient = {
           body: JSON.stringify({
             websiteId: body.websiteId,
             keyword: body.keywordText,
-            language: body.language || "tr",
+            language: body.language || "en",
+            targetCountry: body.targetCountry || "US",
             cronExpression: body.cronExpression || "0 0 * * *"
           }),
         }

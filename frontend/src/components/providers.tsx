@@ -1,109 +1,112 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import { ApiError, SESSION_EXPIRED_EVENT } from "@/lib/apiClient";
+import { Language, TranslationKey, translations } from "@/lib/i18n";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React, { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
 
 type Theme = "light" | "dark";
-type Language = "en" | "tr";
 
 interface AppContextType {
   theme: Theme;
   toggleTheme: () => void;
   lang: Language;
   setLang: (lang: Language) => void;
-  t: (key: string) => string;
+  t: (key: TranslationKey) => string;
 }
 
-const translations: Record<Language, Record<string, string>> = {
-  en: {
-    title: "Akiron SEO - AI Visibility Platform",
-    subtitle: "Empower your brand across SEO, AIO, GEO & AEO search engines.",
-    login: "Sign In",
-    register: "Get Started Free",
-    dashboard: "Dashboard",
-    email: "Email Address",
-    password: "Password",
-    tenantName: "Organization Name",
-    fullName: "Full Name",
-    submitLogin: "Sign In to Workspace",
-    submitRegister: "Create Multi-Tenant Account",
-    switchLang: "Language",
-    toggleTheme: "Theme",
-    rightsReserved: "© 2026 Akiron SEO. All rights reserved.",
-  },
-  tr: {
-    title: "Akiron SEO - Yapay Zeka Görünürlük Platformu",
-    subtitle: "Markanızı SEO, AIO, GEO ve AEO arama motorlarında zirveye taşıyın.",
-    login: "Giriş Yap",
-    register: "Ücretsiz Başla",
-    dashboard: "Kontrol Paneli",
-    email: "E-Posta Adresi",
-    password: "Şifre",
-    tenantName: "Organizasyon / Ajans Adı",
-    fullName: "Ad Soyad",
-    submitLogin: "Çalışma Alanına Giriş Yap",
-    submitRegister: "Çok Kiracılı Hesap Oluştur",
-    switchLang: "Dil",
-    toggleTheme: "Tema",
-    rightsReserved: "© 2026 Akiron SEO. Tüm hakları saklıdır.",
-  }
-};
+const THEME_KEY = "akiron_theme";
+const LANGUAGE_KEY = "akiron_lang";
+const PREFERENCES_EVENT = "akiron:preferences-changed";
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+function subscribePreferences(onStoreChange: () => void): () => void {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(PREFERENCES_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(PREFERENCES_EVENT, onStoreChange);
+  };
+}
+
+function getThemeSnapshot(): Theme {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved === "light" || saved === "dark") return saved;
+  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
+function getLanguageSnapshot(): Language {
+  const saved = localStorage.getItem(LANGUAGE_KEY);
+  if (saved === "en" || saved === "tr") return saved;
+  return navigator.language.toLowerCase().startsWith("tr") ? "tr" : "en";
+}
+
+function emitPreferencesChanged(): void {
+  window.dispatchEvent(new Event(PREFERENCES_EVENT));
+}
+
 export function AppProviders({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark");
-  const [lang, setLang] = useState<Language>("en");
-  const [mounted, setMounted] = useState(false);
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 60_000,
+        refetchOnWindowFocus: false,
+        retry: (failureCount, error) => !(error instanceof ApiError && error.status < 500) && failureCount < 1,
+      },
+      mutations: { retry: false },
+    },
+  }));
+  const theme = useSyncExternalStore<Theme>(subscribePreferences, getThemeSnapshot, () => "dark");
+  const lang = useSyncExternalStore<Language>(subscribePreferences, getLanguageSnapshot, () => "en");
 
   useEffect(() => {
-    setMounted(true);
-    // Detect & Restore saved Theme
-    const savedTheme = localStorage.getItem("akiron_theme") as Theme;
-    if (savedTheme === "light" || savedTheme === "dark") {
-      setTheme(savedTheme);
-    } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
-      setTheme("light");
-    }
-
-    // Detect & Restore saved Language
-    const savedLang = localStorage.getItem("akiron_lang") as Language;
-    if (savedLang === "tr" || savedLang === "en") {
-      setLang(savedLang);
-    } else if (navigator.language && navigator.language.toLowerCase().startsWith("tr")) {
-      setLang("tr");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
     document.documentElement.classList.remove("light", "dark");
     document.documentElement.classList.add(theme);
-    localStorage.setItem("akiron_theme", theme);
-  }, [theme, mounted]);
+  }, [theme]);
 
   useEffect(() => {
-    if (!mounted) return;
-    // Keep the document language in sync so screen readers announce correctly.
     document.documentElement.lang = lang;
-  }, [lang, mounted]);
+  }, [lang]);
 
-  const handleSetLang = (newLang: Language) => {
-    setLang(newLang);
-    localStorage.setItem("akiron_lang", newLang);
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      queryClient.clear();
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.assign("/login");
+      }
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, [queryClient]);
+
+  const setLang = (nextLanguage: Language) => {
+    localStorage.setItem(LANGUAGE_KEY, nextLanguage);
+    emitPreferencesChanged();
   };
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+    localStorage.setItem(THEME_KEY, theme === "light" ? "dark" : "light");
+    emitPreferencesChanged();
   };
 
-  const t = (key: string): string => {
-    return translations[lang][key] || key;
+  const value: AppContextType = {
+    theme,
+    toggleTheme,
+    lang,
+    setLang,
+    t: (key) => translations[lang][key],
   };
 
   return (
-    <AppContext.Provider value={{ theme, toggleTheme, lang, setLang: handleSetLang, t }}>
-      {children}
-    </AppContext.Provider>
+    <QueryClientProvider client={queryClient}>
+      <AppContext.Provider value={value}>
+        <a href="#main-content" className="sr-only z-[100] rounded-lg bg-primary px-4 py-3 font-semibold text-on-primary focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
+          {translations[lang].skipToContent}
+        </a>
+        {children}
+      </AppContext.Provider>
+    </QueryClientProvider>
   );
 }
 
