@@ -73,6 +73,14 @@ public class AkironDbContext : DbContext, IAkironDbContext
             .HasIndex(u => u.Email)
             .IsUnique();
 
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.Property(token => token.TokenHash).HasMaxLength(64);
+            entity.Property(token => token.ReplacedByTokenHash).HasMaxLength(64);
+            entity.HasIndex(token => token.TokenHash).IsUnique();
+            entity.HasIndex(token => new { token.UserId, token.FamilyId });
+        });
+
         modelBuilder.Entity<Tenant>()
             .HasIndex(t => t.Slug)
             .IsUnique();

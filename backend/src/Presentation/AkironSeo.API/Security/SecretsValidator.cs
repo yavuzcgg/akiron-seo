@@ -57,6 +57,19 @@ public static class SecretsValidator
             }
         }
 
+        var cookieSecure = configuration.GetValue<bool?>("Auth:CookieSecure") ?? !environment.IsDevelopment();
+        if (!cookieSecure)
+        {
+            var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+            var onlyLoopbackOrigins = allowedOrigins.Length > 0 && allowedOrigins.All(origin =>
+                Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback);
+
+            if (!onlyLoopbackOrigins)
+            {
+                failures.Add("Auth__CookieSecure may be false only when every allowed origin is loopback.");
+            }
+        }
+
         if (failures.Count > 0)
         {
             throw new InvalidOperationException(

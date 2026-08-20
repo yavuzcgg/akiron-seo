@@ -1,6 +1,7 @@
 using System.Net;
-using System.Text.Json;
+using AkironSeo.Application.Common.Exceptions;
 using AkironSeo.Application.Common.Security;
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AkironSeo.API.Middleware;
@@ -40,7 +41,8 @@ public class GlobalExceptionHandlerMiddleware
         {
             KeyNotFoundException => (int)HttpStatusCode.NotFound,
             UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
-            // The caller supplied a URL the server refuses to fetch — that is their input error.
+            ConflictException => (int)HttpStatusCode.Conflict,
+            ValidationException => (int)HttpStatusCode.BadRequest,
             UnsafeOutboundUrlException => (int)HttpStatusCode.BadRequest,
             InvalidOperationException => (int)HttpStatusCode.BadRequest,
             ArgumentException => (int)HttpStatusCode.BadRequest,
@@ -52,7 +54,15 @@ public class GlobalExceptionHandlerMiddleware
         var problemDetails = new ProblemDetails
         {
             Status = statusCode,
-            Title = statusCode == 500 ? "An unexpected server error occurred." : "Invalid Request",
+            Title = statusCode switch
+            {
+                400 => "Validation failed",
+                401 => "Authentication failed",
+                404 => "Resource not found",
+                409 => "Resource conflict",
+                500 => "An unexpected server error occurred.",
+                _ => "Request failed"
+            },
             Detail = statusCode == 500 ? "Please contact support if the issue persists." : exception.Message,
             Instance = context.Request.Path,
             Extensions =
@@ -62,7 +72,15 @@ public class GlobalExceptionHandlerMiddleware
             }
         };
 
-        var json = JsonSerializer.Serialize(problemDetails);
-        await context.Response.WriteAsync(json);
+        if (exception is ValidationException validationException)
+        {
+            problemDetails.Extensions["errors"] = validationException.Errors
+                .GroupBy(failure => failure.PropertyName)
+                .ToDictionary(
+                    group => char.ToLowerInvariant(group.Key[0]) + group.Key[1..],
+                    group => group.Select(failure => failure.ErrorMessage).Distinct().ToArray());
+        }
+
+        await context.Response.WriteAsJsonAsync(problemDetails, context.RequestAborted);
     }
 }

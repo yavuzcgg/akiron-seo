@@ -15,8 +15,7 @@ namespace AkironSeo.IntegrationTests;
 /// </summary>
 public class PostgresFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
+    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine")
         .Build();
 
     // Error detail is opt-in in Npgsql; without it constraint violations arrive without the

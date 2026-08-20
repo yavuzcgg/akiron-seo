@@ -23,40 +23,39 @@ public class QuotaLedgerService : IQuotaLedgerService
     public async Task<TenantQuotaStatusDto> GetTenantQuotaStatusAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
         var subscription = await _dbContext.Subscriptions
+            .AsNoTracking()
             .Include(s => s.Plan)
             .FirstOrDefaultAsync(s => s.TenantId == tenantId, cancellationToken);
 
-        var planName = subscription?.Plan?.Name ?? "Professional Plan";
-        var crawlLimit = 1000;
-        var keywordLimit = 100;
-        var aiLimit = 500;
+        if (subscription is null)
+        {
+            var periodStart = new DateTime(
+                DateTime.UtcNow.Year,
+                DateTime.UtcNow.Month,
+                1,
+                0,
+                0,
+                0,
+                DateTimeKind.Utc);
 
-        var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var endOfMonth = startOfMonth.AddMonths(1);
-
-        var totalCrawlsUsed = await _dbContext.SeoAudits
-            .Where(a => a.TenantId == tenantId && a.CreatedAt >= startOfMonth)
-            .CountAsync(cancellationToken);
-
-        var totalKeywordsUsed = await _dbContext.TrackedKeywords
-            .Where(k => k.TenantId == tenantId && !k.IsDeleted)
-            .CountAsync(cancellationToken);
-
-        var totalAiUsed = await _dbContext.EncryptedTenantApiKeys
-            .Where(k => k.TenantId == tenantId)
-            .CountAsync(cancellationToken) * 15 + 25;
+            return new TenantQuotaStatusDto(
+                PlanName: "No active plan",
+                MonthlyTokenLimit: 0,
+                UsedTokens: 0,
+                RemainingTokens: 0,
+                PeriodStart: periodStart,
+                PeriodEnd: periodStart.AddMonths(1),
+                EnforcementEnabled: false);
+        }
 
         return new TenantQuotaStatusDto(
-            TenantId: tenantId,
-            PlanName: planName,
-            CrawlQuotaLimit: crawlLimit,
-            CrawlQuotaUsed: Math.Min(totalCrawlsUsed, crawlLimit),
-            AiQuotaLimit: aiLimit,
-            AiQuotaUsed: Math.Min(totalAiUsed, aiLimit),
-            KeywordQuotaLimit: keywordLimit,
-            KeywordQuotaUsed: Math.Min(totalKeywordsUsed, keywordLimit),
-            CycleResetsAt: endOfMonth
-        );
+            PlanName: subscription.Plan?.Name ?? "Unknown plan",
+            MonthlyTokenLimit: subscription.MonthlyLimitTokens,
+            UsedTokens: subscription.UsedTokens,
+            RemainingTokens: Math.Max(subscription.MonthlyLimitTokens - subscription.UsedTokens, 0),
+            PeriodStart: subscription.CurrentPeriodStart,
+            PeriodEnd: subscription.CurrentPeriodEnd,
+            EnforcementEnabled: false);
     }
 
     /// <summary>

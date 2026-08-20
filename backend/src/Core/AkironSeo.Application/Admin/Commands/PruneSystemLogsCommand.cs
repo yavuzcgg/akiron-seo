@@ -1,10 +1,19 @@
 using AkironSeo.Application.Common.Interfaces;
+using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace AkironSeo.Application.Admin.Commands;
 
 public record PruneSystemLogsCommand(int OlderThanDays = 30) : IRequest<int>;
+
+public sealed class PruneSystemLogsCommandValidator : AbstractValidator<PruneSystemLogsCommand>
+{
+    public PruneSystemLogsCommandValidator()
+    {
+        RuleFor(x => x.OlderThanDays).InclusiveBetween(1, 3650);
+    }
+}
 
 public class PruneSystemLogsCommandHandler : IRequestHandler<PruneSystemLogsCommand, int>
 {

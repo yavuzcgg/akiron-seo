@@ -1,11 +1,31 @@
+using AkironSeo.API.Validation;
 using AkironSeo.Application.Admin.Commands;
 using AkironSeo.Application.Admin.Queries;
+using AkironSeo.Application.Common.Exceptions;
+using AkironSeo.Application.Common.Interfaces;
+using FluentValidation;
 using MediatR;
 
 namespace AkironSeo.API.Endpoints;
 
 public record UpdateQuotaRequestDto(long NewMonthlyLimitTokens, bool ResetUsedTokens = false);
 public record PruneLogsRequestDto(int OlderThanDays = 30);
+
+public sealed class UpdateQuotaRequestValidator : AbstractValidator<UpdateQuotaRequestDto>
+{
+    public UpdateQuotaRequestValidator()
+    {
+        RuleFor(x => x.NewMonthlyLimitTokens).InclusiveBetween(1, 10_000_000_000);
+    }
+}
+
+public sealed class PruneLogsRequestValidator : AbstractValidator<PruneLogsRequestDto>
+{
+    public PruneLogsRequestValidator()
+    {
+        RuleFor(x => x.OlderThanDays).InclusiveBetween(1, 3650);
+    }
+}
 
 public static class AdminEndpoints
 {
@@ -26,10 +46,15 @@ public static class AdminEndpoints
             var command = new UpdateTenantQuotaCommand(tenantId, request.NewMonthlyLimitTokens, request.ResetUsedTokens);
             var success = await mediator.Send(command);
             return Results.Ok(new { Success = success });
-        });
+        }).Validate<UpdateQuotaRequestDto>();
 
-        group.MapPost("/tenants/{tenantId}/toggle-status", async (Guid tenantId, IMediator mediator) =>
+        group.MapPost("/tenants/{tenantId}/toggle-status", async (Guid tenantId, ITenantContext tenantContext, IMediator mediator) =>
         {
+            if (tenantId == tenantContext.CurrentTenantId)
+            {
+                throw new ConflictException("The current SuperAdmin tenant cannot disable itself.");
+            }
+
             var activeStatus = await mediator.Send(new ToggleTenantStatusCommand(tenantId));
             return Results.Ok(new { Success = true, IsActive = activeStatus });
         });
@@ -44,6 +69,6 @@ public static class AdminEndpoints
         {
             var prunedCount = await mediator.Send(new PruneSystemLogsCommand(request.OlderThanDays));
             return Results.Ok(new { Success = true, PrunedRecordsCount = prunedCount });
-        });
+        }).Validate<PruneLogsRequestDto>();
     }
 }

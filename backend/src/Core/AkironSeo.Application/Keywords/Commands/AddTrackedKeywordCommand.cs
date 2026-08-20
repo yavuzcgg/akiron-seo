@@ -1,12 +1,46 @@
 using AkironSeo.Application.Common.Interfaces;
 using AkironSeo.Domain.Entities.TenantScoped;
 using Cronos;
+using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace AkironSeo.Application.Keywords.Commands;
 
-public record AddTrackedKeywordCommand(Guid WebsiteId, string Keyword, string CronExpression = "0 0 * * *") : IRequest<Guid>;
+public record AddTrackedKeywordCommand(
+    Guid WebsiteId,
+    string Keyword,
+    string Language = "en",
+    string TargetCountry = "US",
+    string CronExpression = "0 0 * * *") : IRequest<Guid>;
+
+public sealed class AddTrackedKeywordCommandValidator : AbstractValidator<AddTrackedKeywordCommand>
+{
+    public AddTrackedKeywordCommandValidator()
+    {
+        RuleFor(x => x.WebsiteId).NotEmpty();
+        RuleFor(x => x.Keyword).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Language).Matches("^[A-Za-z]{2}$");
+        RuleFor(x => x.TargetCountry).Matches("^[A-Za-z]{2}$");
+        RuleFor(x => x.CronExpression)
+            .NotEmpty()
+            .MaximumLength(100)
+            .Must(BeValidCron).WithMessage("CronExpression must be a valid five-part cron expression.");
+    }
+
+    private static bool BeValidCron(string expression)
+    {
+        try
+        {
+            CronExpression.Parse(expression);
+            return true;
+        }
+        catch (CronFormatException)
+        {
+            return false;
+        }
+    }
+}
 
 public class AddTrackedKeywordCommandHandler : IRequestHandler<AddTrackedKeywordCommand, Guid>
 {
@@ -39,6 +73,8 @@ public class AddTrackedKeywordCommandHandler : IRequestHandler<AddTrackedKeyword
             TenantId = tenantId,
             WebsiteId = request.WebsiteId,
             Keyword = request.Keyword.Trim(),
+            Language = request.Language.ToLowerInvariant(),
+            TargetCountry = request.TargetCountry.ToUpperInvariant(),
             CronExpression = request.CronExpression,
             IsActive = true,
             NextScheduledRun = nextRun

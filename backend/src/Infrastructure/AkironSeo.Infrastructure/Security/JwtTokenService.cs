@@ -51,7 +51,14 @@ public class JwtTokenService : IJwtTokenService
 
     public string GenerateRefreshToken()
     {
-        return Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        // Hex avoids cookie escaping while retaining 512 bits of entropy.
+        return Convert.ToHexString(RandomNumberGenerator.GetBytes(64));
+    }
+
+    public string HashRefreshToken(string token)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        return Convert.ToHexString(hash);
     }
 
     public ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)

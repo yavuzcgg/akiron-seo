@@ -1,11 +1,33 @@
+using AkironSeo.Application.Common.Exceptions;
 using AkironSeo.Application.Common.Interfaces;
 using AkironSeo.Domain.Entities.TenantScoped;
+using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace AkironSeo.Application.Websites.Commands;
 
 public record CreateWebsiteCommand(string Name, string DomainUrl) : IRequest<Guid>;
+
+public sealed class CreateWebsiteCommandValidator : AbstractValidator<CreateWebsiteCommand>
+{
+    public CreateWebsiteCommandValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MinimumLength(2).MaximumLength(100);
+        RuleFor(x => x.DomainUrl)
+            .NotEmpty()
+            .MaximumLength(2048)
+            .Must(BeValidHttpUrl).WithMessage("DomainUrl must contain a valid HTTP or HTTPS host.");
+    }
+
+    private static bool BeValidHttpUrl(string value)
+    {
+        var normalized = value.Contains("://", StringComparison.Ordinal) ? value : $"https://{value}";
+        return Uri.TryCreate(normalized, UriKind.Absolute, out var uri) &&
+               (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
+               !string.IsNullOrWhiteSpace(uri.Host);
+    }
+}
 
 public class CreateWebsiteCommandHandler : IRequestHandler<CreateWebsiteCommand, Guid>
 {
@@ -38,13 +60,13 @@ public class CreateWebsiteCommandHandler : IRequestHandler<CreateWebsiteCommand,
 
         if (exists)
         {
-            throw new InvalidOperationException($"Website domain '{cleanDomain}' is already registered in your organization.");
+            throw new ConflictException($"Website domain '{cleanDomain}' is already registered in your organization.");
         }
 
         var website = new Website
         {
             TenantId = tenantId,
-            Name = request.Name,
+            Name = request.Name.Trim(),
             DomainUrl = cleanDomain,
             VerificationToken = $"akiron-verify-{Guid.NewGuid():N}",
             IsVerified = false

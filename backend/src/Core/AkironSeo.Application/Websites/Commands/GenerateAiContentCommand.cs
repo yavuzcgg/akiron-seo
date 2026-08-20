@@ -1,4 +1,5 @@
 using AkironSeo.Application.Common.Interfaces;
+using FluentValidation;
 using MediatR;
 
 namespace AkironSeo.Application.Websites.Commands;
@@ -8,6 +9,19 @@ public record GenerateAiContentCommand(
     string TargetKeyword,
     string? MissingPath = null
 ) : IRequest<AiContentPlanDto>;
+
+public sealed class GenerateAiContentCommandValidator : AbstractValidator<GenerateAiContentCommand>
+{
+    public GenerateAiContentCommandValidator()
+    {
+        RuleFor(x => x.WebsiteId).NotEmpty();
+        RuleFor(x => x.TargetKeyword).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.MissingPath)
+            .MaximumLength(512)
+            .Must(path => string.IsNullOrWhiteSpace(path) || path.StartsWith('/'))
+            .WithMessage("MissingPath must be a local path beginning with '/'.");
+    }
+}
 
 public class GenerateAiContentCommandHandler : IRequestHandler<GenerateAiContentCommand, AiContentPlanDto>
 {

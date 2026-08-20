@@ -1,15 +1,13 @@
 namespace AkironSeo.Application.Common.Interfaces;
 
 public record TenantQuotaStatusDto(
-    Guid TenantId,
     string PlanName,
-    int CrawlQuotaLimit,
-    int CrawlQuotaUsed,
-    int AiQuotaLimit,
-    int AiQuotaUsed,
-    int KeywordQuotaLimit,
-    int KeywordQuotaUsed,
-    DateTime CycleResetsAt
+    long MonthlyTokenLimit,
+    long UsedTokens,
+    long RemainingTokens,
+    DateTime PeriodStart,
+    DateTime PeriodEnd,
+    bool EnforcementEnabled
 );
 
 public interface IQuotaLedgerService

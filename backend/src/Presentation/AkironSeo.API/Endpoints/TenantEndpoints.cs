@@ -1,4 +1,5 @@
 using AkironSeo.Application.Auth.Dtos;
+using AkironSeo.API.Validation;
 using AkironSeo.Application.Common.Interfaces;
 using AkironSeo.Domain.Entities.TenantScoped;
 using AkironSeo.Infrastructure.Persistence;
@@ -37,7 +38,7 @@ public static class TenantEndpoints
             }
 
             await db.SaveChangesAsync();
-            return Results.Ok(new { Success = true, Message = $"BYOK Encrypted API key for {request.Provider} saved successfully." });
-        });
+            return Results.Ok(new { Success = true, Message = $"BYOK encrypted API key for {request.Provider} saved successfully." });
+        }).Validate<SaveApiKeyDto>();
     }
 }

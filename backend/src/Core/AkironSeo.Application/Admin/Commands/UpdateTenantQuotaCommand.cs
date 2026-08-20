@@ -1,4 +1,5 @@
 using AkironSeo.Application.Common.Interfaces;
+using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,6 +10,15 @@ public record UpdateTenantQuotaCommand(
     long NewMonthlyLimitTokens,
     bool ResetUsedTokens = false
 ) : IRequest<bool>;
+
+public sealed class UpdateTenantQuotaCommandValidator : AbstractValidator<UpdateTenantQuotaCommand>
+{
+    public UpdateTenantQuotaCommandValidator()
+    {
+        RuleFor(x => x.TenantId).NotEmpty();
+        RuleFor(x => x.NewMonthlyLimitTokens).InclusiveBetween(1, 10_000_000_000);
+    }
+}
 
 public class UpdateTenantQuotaCommandHandler : IRequestHandler<UpdateTenantQuotaCommand, bool>
 {
