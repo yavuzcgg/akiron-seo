@@ -166,7 +166,7 @@ function DashboardContent() {
   };
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-7xl flex-col justify-between space-y-6 p-4 sm:p-6">
+    <div className="mx-auto flex min-h-dvh max-w-7xl flex-col space-y-6 p-4 sm:p-6">
       <Header label={`Akiron SEO ${t("dashboard")}`}>
         {session.data?.role === SUPER_ADMIN_ROLE && (
           <Link
@@ -456,7 +456,7 @@ function DashboardContent() {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-border py-4 text-center text-xs text-subtle">
+      <footer className="mt-auto border-t border-border py-4 text-center text-xs text-subtle">
         {t("rightsReserved")}
       </footer>
     </div>
