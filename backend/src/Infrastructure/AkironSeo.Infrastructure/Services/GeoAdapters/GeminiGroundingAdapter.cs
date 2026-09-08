@@ -33,7 +33,7 @@ public class GeminiGroundingAdapter : IGeoEngineAdapter
 
         try
         {
-            var requestUri = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={apiKey}";
+            var requestUri = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={apiKey}";
             var payload = new
             {
                 contents = new[]
