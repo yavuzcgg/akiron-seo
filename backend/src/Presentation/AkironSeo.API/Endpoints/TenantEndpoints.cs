@@ -13,6 +13,28 @@ public static class TenantEndpoints
     {
         var group = app.MapGroup("/api/v1/tenant").RequireAuthorization();
 
+        // Lists which providers have a stored key for the current tenant. The encrypted key
+        // itself is never returned — only the provider, its active flag, and when it was saved —
+        // so the UI can show which providers are configured without exposing secrets.
+        group.MapGet("/api-keys", async (ITenantContext tenantContext, AkironDbContext db) =>
+        {
+            var currentTenantId = tenantContext.CurrentTenantId;
+
+            var keys = await db.EncryptedTenantApiKeys
+                .Where(k => k.TenantId == currentTenantId)
+                .OrderBy(k => k.Provider)
+                .Select(k => new
+                {
+                    Provider = (int)k.Provider,
+                    ProviderName = k.Provider.ToString(),
+                    IsActive = k.IsActive,
+                    UpdatedAt = k.UpdatedAt ?? k.CreatedAt
+                })
+                .ToListAsync();
+
+            return Results.Ok(keys);
+        });
+
         group.MapPost("/api-keys", async (SaveApiKeyDto request, ITenantContext tenantContext, AkironDbContext db, IApiKeyEncryptionService encryptionService) =>
         {
             var currentTenantId = tenantContext.CurrentTenantId;

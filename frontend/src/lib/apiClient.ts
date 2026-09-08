@@ -485,6 +485,10 @@ export const apiClient = {
       apiRequest<TenantQuotaStatus>(
         "/tenant/quota"
       ),
+    listApiKeys: () =>
+      apiRequest<Array<{ provider: number; providerName: string; isActive: boolean; updatedAt: string }>>(
+        "/tenant/api-keys"
+      ),
     saveApiKey: (body: { provider: number; apiKey: string }) =>
       apiRequest<{ success: boolean; message: string }>(
         "/tenant/api-keys",

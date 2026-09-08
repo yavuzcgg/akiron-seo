@@ -2,6 +2,7 @@ export const queryKeys = {
   session: ["session"] as const,
   websites: ["websites"] as const,
   quota: ["tenant", "quota"] as const,
+  apiKeys: ["tenant", "api-keys"] as const,
   keywords: (websiteId: string) => ["websites", websiteId, "keywords"] as const,
   geo: (websiteId: string) => ["websites", websiteId, "geo"] as const,
   competitors: (websiteId: string) => ["websites", websiteId, "competitors"] as const,

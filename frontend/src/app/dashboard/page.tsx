@@ -47,6 +47,13 @@ interface Website {
   createdAt: string;
 }
 
+const PROVIDER_LABELS: Record<number, string> = {
+  1: "OpenAI",
+  2: "Perplexity AI",
+  3: "Google Gemini",
+  4: "Anthropic Claude",
+};
+
 export default function DashboardPage() {
   return (
     <AuthGuard>
@@ -65,6 +72,11 @@ function DashboardContent() {
     queryFn: apiClient.websites.list,
   });
   const websites = websitesQuery.data ?? [];
+  const apiKeysQuery = useQuery({
+    queryKey: queryKeys.apiKeys,
+    queryFn: apiClient.tenant.listApiKeys,
+  });
+  const apiKeys = apiKeysQuery.data ?? [];
   const [loading, setLoading] = useState(false);
   const [expandedSiteIds, setExpandedSiteIds] = useState<Set<string>>(() => new Set());
   
@@ -159,6 +171,7 @@ function DashboardContent() {
       if (data.success) {
         setMessage(t("apiKeySaved"));
         setApiKeyValue("");
+        await queryClient.invalidateQueries({ queryKey: queryKeys.apiKeys });
       }
     } catch (err: unknown) {
       setError(getErrorMessage(err, t("apiKeyFailed")));
@@ -381,6 +394,26 @@ function DashboardContent() {
               <p className="text-xs leading-relaxed text-muted">
                 {t("byokDescription")}
               </p>
+
+              {apiKeys.length > 0 && (
+                <div className="space-y-2 rounded-lg border border-border bg-bg p-3">
+                  <p className="text-xs font-semibold text-muted">{t("activeKeys")}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {apiKeys.map((k) => (
+                      <span
+                        key={k.provider}
+                        title={`${t("lastUpdated")}: ${new Date(k.updatedAt).toLocaleDateString()}`}
+                        className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          k.isActive ? "bg-success/10 text-success" : "bg-elevated text-muted"
+                        }`}
+                      >
+                        <CheckCircle2 size={13} aria-hidden />
+                        {PROVIDER_LABELS[k.provider] ?? k.providerName}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <form onSubmit={handleSaveApiKey} className="space-y-3">
                 <div>
