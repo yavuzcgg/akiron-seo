@@ -320,22 +320,21 @@ Key reading: [`SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) ·
 
 ## Roadmap
 
-**Next — a background job runner** so the computed cron schedules actually fire; today
-`TrackedKeyword.NextScheduledRun` is written and never read, and every analysis runs inline
-in the HTTP request. Alongside it, wire the existing quota ledger into crawl, GEO, and AI
-flows. The dashboard now reports only the real subscription token limit and clearly marks
-enforcement as disconnected until those flows reserve quota.
+The prioritised product roadmap, feature gap analysis, and positioning live in
+[`docs/PRODUCT_ROADMAP.md`](docs/PRODUCT_ROADMAP.md); the tier structure, credit model, and
+cost base live in [`docs/PRICING_STRATEGY.md`](docs/PRICING_STRATEGY.md). Both were written
+against the implementation rather than the original plan and supersede the older
+`IMPLEMENTATION_PLAN.md` where they disagree.
 
-**Then — real integrations.** Google Search Console via OAuth first, since the API is free
-and it replaces the most misleading simulated feature. A SERP provider for genuine rank
-tracking. OpenAI and Anthropic GEO adapters to complete the citation matrix. Real email
-delivery and signed, retried webhooks.
+**P0 — before the first sale.** Manual founding-customer billing with enforced plan limits,
+platform AI keys with a credit model, email with password reset, a real Search Console
+integration, real rank tracking, an asynchronous plan-tiered crawler, a tracked GEO prompt
+library with weekly sampling, onboarding, GEO correctness fixes, removal of fabricated
+fallback content, and a deployed, monitored, backed-up environment.
 
-**Later — productisation.** Payment integration, a multi-page crawler using a real HTML
-parser instead of regex, broader UI localization coverage, and expanded end-to-end browser
-coverage.
-
----
+**P1 — after the first customers.** Automated checkout, team invites and roles, notification
+centre and email alerts, scheduled audits and reports, real competitor analysis, Google AI
+Overview tracking, Core Web Vitals, and the first weekly Agent Brief.
 
 ## License
 
