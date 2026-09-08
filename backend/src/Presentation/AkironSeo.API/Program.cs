@@ -243,6 +243,12 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// Authentication and authorization run before the tenant resolver so the JWT is
+// validated and User claims are populated when TenantResolverMiddleware reads tenant_id.
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseMiddleware<TenantResolverMiddleware>();
+
 // Health Check Probe
 app.MapGet("/health", () => Results.Ok(new
 {
