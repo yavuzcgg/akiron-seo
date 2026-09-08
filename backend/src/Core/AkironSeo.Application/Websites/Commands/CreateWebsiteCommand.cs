@@ -22,6 +22,13 @@ public sealed class CreateWebsiteCommandValidator : AbstractValidator<CreateWebs
 
     private static bool BeValidHttpUrl(string value)
     {
+        // Runs even when NotEmpty already failed (cascade is not stopped), so guard null/blank
+        // to fail the rule cleanly with a 400 instead of throwing and surfacing a 500.
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
         var normalized = value.Contains("://", StringComparison.Ordinal) ? value : $"https://{value}";
         return Uri.TryCreate(normalized, UriKind.Absolute, out var uri) &&
                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
