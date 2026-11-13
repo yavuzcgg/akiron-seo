@@ -1,5 +1,6 @@
 "use client";
 
+import BrandMark from "@/components/ui/BrandMark";
 import Link from "next/link";
 
 interface LogoProps {
@@ -11,12 +12,7 @@ interface LogoProps {
 export default function Logo({ label = "Akiron SEO", href = "/" }: LogoProps) {
   return (
     <Link href={href} className="flex items-center gap-2.5">
-      <span
-        className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-lg font-extrabold text-on-primary shadow-md"
-        aria-hidden
-      >
-        A
-      </span>
+      <BrandMark size={36} className="shrink-0 drop-shadow-sm" />
       {label && (
         <span className="text-lg font-extrabold tracking-tight text-foreground">{label}</span>
       )}

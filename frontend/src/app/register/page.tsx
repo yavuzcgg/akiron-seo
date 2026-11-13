@@ -1,6 +1,7 @@
 "use client";
 
 import { useApp } from "@/components/providers";
+import BrandMark from "@/components/ui/BrandMark";
 import { ApiError, apiClient } from "@/lib/apiClient";
 import { queryKeys } from "@/lib/queryKeys";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -30,7 +31,11 @@ export default function RegisterPage() {
     <main id="main-content" tabIndex={-1} className="flex min-h-dvh items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6 rounded-2xl border border-border bg-surface p-6 shadow-xl sm:p-8">
         <div className="space-y-2 text-center">
-          <Link href="/" className="inline-block text-2xl font-extrabold tracking-tight text-primary">
+          <Link
+            href="/"
+            className="inline-flex flex-col items-center gap-3 text-2xl font-extrabold tracking-tight text-foreground"
+          >
+            <BrandMark size={56} className="drop-shadow-md" />
             Akiron SEO
           </Link>
           <h1 className="text-xl font-bold text-foreground">{t("register")}</h1>

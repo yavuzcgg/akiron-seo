@@ -2,6 +2,7 @@
 
 import Header from "@/components/Header";
 import { useApp } from "@/components/providers";
+import BrandMark from "@/components/ui/BrandMark";
 import { FileCode2, Radar, Search, Sparkles } from "lucide-react";
 import Link from "next/link";
 
@@ -62,7 +63,10 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-border py-4 text-center text-xs text-subtle">
-        {t("rightsReserved")}
+        <span className="inline-flex items-center gap-2">
+          <BrandMark size={16} />
+          {t("rightsReserved")}
+        </span>
       </footer>
     </div>
   );

@@ -1,3 +1,4 @@
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppProviders } from "@/components/providers";
 import { Fira_Code, Fira_Sans } from "next/font/google";
@@ -15,9 +16,18 @@ const firaCode = Fira_Code({
   display: "swap",
 });
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Akiron SEO — AI Visibility Platform",
   description: "Multi-tenant SEO & Generative Engine Optimization for agencies.",
+  applicationName: "Akiron SEO",
+  appleWebApp: { title: "Akiron SEO" },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b1220" },
+  ],
 };
 
 // Runs before first paint so the saved theme is applied without a flash of the
