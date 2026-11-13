@@ -16,6 +16,7 @@ using AkironSeo.Infrastructure.Services.GeoAdapters;
 using DnsClient;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -211,7 +212,23 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddOpenApi();
 
+// Behind a reverse proxy every request arrives from the proxy's private address; without this the
+// per-IP auth limits above would be one bucket shared by every visitor.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = null;
+    options.KnownProxies.Clear();
+    options.KnownIPNetworks.Clear();
+    foreach (var network in builder.Configuration.GetSection("ForwardedHeaders:TrustedNetworks").Get<string[]>() ?? [])
+    {
+        options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+    }
+});
+
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 // CORS is registered ahead of the exception handler so that error responses still carry
 // the headers the browser needs to surface the real status code instead of an opaque failure.
