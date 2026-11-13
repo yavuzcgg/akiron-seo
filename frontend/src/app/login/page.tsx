@@ -63,7 +63,7 @@ export default function LoginPage() {
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="admin@akironseo.com"
+              placeholder="you@company.com"
               required
               className="min-h-11 w-full rounded-lg border border-border bg-bg px-4 py-2.5 text-base text-foreground placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-ring"
             />
