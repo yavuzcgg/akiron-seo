@@ -1,0 +1,65 @@
+# Production stack on yavuz-prod-1 (https://seo.yavuzcelik.com). No host ports: the shared Caddy
+# (portfolio_net) routes /api/* and /health to seo-backend and everything else to seo-frontend.
+# Secrets come from .env next to this file (same names as .env.example).
+name: akiron-seo-prod
+
+services:
+  seo-db:
+    image: postgres:16-alpine
+    container_name: seo-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
+    volumes:
+      - seo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 256m
+    networks: [internal]
+
+  seo-backend:
+    build: ./backend
+    image: akiron-seo-backend:latest
+    container_name: seo-backend
+    restart: unless-stopped
+    depends_on:
+      seo-db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: Host=seo-db;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      Jwt__SecretKey: ${JWT_SECRET_KEY:?}
+      Security__MasterEncryptionKey: ${MASTER_ENCRYPTION_KEY:?}
+      Cors__AllowedOrigins__0: https://seo.yavuzcelik.com
+      Auth__CookieSecure: "true"
+      DOTNET_gcServer: "0"
+      ForwardedHeaders__TrustedNetworks__0: 172.16.0.0/12
+      ForwardedHeaders__TrustedNetworks__1: 10.0.0.0/8
+      ForwardedHeaders__TrustedNetworks__2: 192.168.0.0/16
+    mem_limit: 512m
+    networks: [internal, portfolio_net]
+
+  seo-frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: https://seo.yavuzcelik.com/api/v1
+    image: akiron-seo-frontend:latest
+    container_name: seo-frontend
+    restart: unless-stopped
+    depends_on: [seo-backend]
+    mem_limit: 384m
+    networks: [portfolio_net]
+
+volumes:
+  seo_pgdata:
+
+networks:
+  internal:
+  portfolio_net:
+    external: true
